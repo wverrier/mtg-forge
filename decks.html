@@ -21,7 +21,7 @@
     
     <img x-show="hoverPreview.visible && viewMode === 'list'" :src="hoverPreview.url" class="card-preview-float shadow-2xl" :style="`left:${hoverPreview.x+20}px; top:${hoverPreview.y-120}px`" />
 
-    <header class="panel px-6 py-4 flex justify-between items-center border-b border-cyan-400/20 shadow-xl">
+    <header class="panel px-6 py-4 flex justify-between items-center border-b border-cyan-400/20">
         <div class="flex items-center gap-6">
             <a href="index.html" class="text-3xl font-bold brand-blue" style="font-family: 'Bebas Neue'">FORGE // DECKS</a>
             <nav class="flex gap-4 text-[10px] font-bold uppercase tracking-widest text-steel">
@@ -30,8 +30,8 @@
             </nav>
         </div>
         <div class="flex gap-2">
-            <button @click="viewMode = 'list'" :class="viewMode === 'list' ? 'bg-cyan-400 text-black' : 'bg-white/5'" class="px-3 py-1 text-[10px] font-bold uppercase transition">List</button>
-            <button @click="viewMode = 'visual'" :class="viewMode === 'visual' ? 'bg-cyan-400 text-black' : 'bg-white/5'" class="px-3 py-1 text-[10px] font-bold uppercase transition">Visual</button>
+            <button @click="viewMode = 'list'" :class="viewMode === 'list' ? 'bg-cyan-400 text-black' : 'bg-white/5'" class="px-3 py-1 text-[10px] font-bold uppercase">List</button>
+            <button @click="viewMode = 'visual'" :class="viewMode === 'visual' ? 'bg-cyan-400 text-black' : 'bg-white/5'" class="px-3 py-1 text-[10px] font-bold uppercase">Visual</button>
         </div>
     </header>
 
@@ -60,12 +60,12 @@
                 <div class="flex flex-col items-center justify-center border-x border-white/5 h-full">
                     <p class="text-[10px] text-steel uppercase tracking-[0.3em] mb-1">Combat Readiness</p>
                     <div class="flex gap-6 font-mono text-sm brand-blue font-bold">
-                        <span>COUNT: <span x-text="countAllCards(activeDeck)"></span> / 100</span>
-                        <span>VALUE: $<span x-text="getDeckPrice()"></span></span>
+                        <span>COUNT: <span x-text="countAllCards(activeDeck)"></span></span>
+                        <span>SYSTEM USAGE: <span class="text-white" x-text="getGlobalConflictCount()"></span> CONFLICTS</span>
                     </div>
                 </div>
                 <div class="z-10 flex flex-col items-end">
-                    <input type="text" x-model="searchQuery" @input.debounce.500ms="searchCards()" placeholder="ENTER NAME..." class="w-full max-w-[280px] bg-black/40 border border-cyan-400/20 p-2 text-xs font-mono focus:border-cyan-400 outline-none">
+                    <input type="text" x-model="searchQuery" @input.debounce.500ms="searchCards()" placeholder="QUERY DATABASE..." class="w-full max-w-[280px] bg-black/40 border border-cyan-400/20 p-2 text-xs font-mono focus:border-cyan-400 outline-none">
                 </div>
             </div>
 
@@ -91,7 +91,7 @@
                                 <template x-for="card in getCardsByCat(cat)" :key="card.id">
                                     <div class="flex justify-between items-center py-1 hover:bg-white/5 px-2 group rounded relative">
                                         <div class="flex items-center gap-2 truncate">
-                                            <span :class="getOwnershipStyle(card)" class="text-[10px] font-bold w-4" x-text="getOwnershipIcon(card)"></span>
+                                            <span :class="getOwnershipStyle(card)" class="text-[10px] font-bold w-4" x-text="getOwnershipIcon(card)" :title="getConflictTooltip(card)"></span>
                                             <span @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()" x-text="card.name" class="text-xs font-bold cursor-help truncate"></span>
                                             
                                             <div class="flex gap-2 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -101,9 +101,9 @@
                                         </div>
                                         <div class="flex items-center gap-3">
                                             <div class="flex items-center bg-black/20 rounded">
-                                                <button @click="adjustQty(card, -1)" class="px-2 text-steel hover:brand-blue transition">-</button>
+                                                <button @click="adjustQty(card, -1)" class="px-2 text-steel hover:brand-blue">-</button>
                                                 <span class="text-[10px] font-mono w-4 text-center" x-text="card.qty"></span>
-                                                <button @click="adjustQty(card, 1)" class="px-2 text-steel hover:brand-blue transition">+</button>
+                                                <button @click="adjustQty(card, 1)" class="px-2 text-steel hover:brand-blue">+</button>
                                             </div>
                                         </div>
                                     </div>
@@ -150,6 +150,54 @@
                 categories: ['Commander', 'Creature', 'Sorcery', 'Instant', 'Artifact', 'Enchantment', 'Planeswalker', 'Land'],
                 hoverPreview: { visible: false, url: '', x: 0, y: 0 },
                 init() { if(this.decks.length) this.activeDeck = this.decks[0]; },
+                
+                clean(n) {
+                    return n.split('(')[0].split(' // ')[0].replace(/[^\w\s]/gi, '').toLowerCase().trim();
+                },
+
+                getOwnershipIcon(card) {
+                    const targetName = this.clean(card.name);
+                    const isBasicLand = ['forest', 'island', 'swamp', 'mountain', 'plains'].includes(targetName);
+                    
+                    // 1. Vault Total
+                    const totalOwned = this.vault.reduce((sum, v) => this.clean(v.name) === targetName ? sum + v.qty : sum, 0);
+                    if(totalOwned === 0) return '✕';
+
+                    // 2. Global Usage (Exclude current deck copy to see if others want it)
+                    const otherDecks = this.decks.filter(d => d.id !== this.activeDeck.id);
+                    const usedInOthers = otherDecks.reduce((sum, d) => {
+                        const inDeck = d.cards.find(c => this.clean(c.name) === targetName);
+                        return sum + (inDeck ? inDeck.qty : 0);
+                    }, 0);
+
+                    // Logic for Basics: Always check if owned, ignore conflict
+                    if(isBasicLand) return totalOwned > 0 ? '✓' : '✕';
+
+                    // Logic for Standard Cards:
+                    if(usedInOthers > 0 && (usedInOthers + card.qty) > totalOwned) return '⧉'; // Multi-deck conflict
+                    if(card.qty > totalOwned) return '!'; // Not enough copies
+                    return '✓';
+                },
+
+                getOwnershipStyle(card) {
+                    const icon = this.getOwnershipIcon(card);
+                    if(icon === '✓') return 'text-green-400';
+                    if(icon === '⧉') return 'text-cyan-400'; // Conflict color
+                    if(icon === '!') return 'text-yellow-400';
+                    return 'text-red-500';
+                },
+
+                getConflictTooltip(card) {
+                    const icon = this.getOwnershipIcon(card);
+                    if(icon === '⧉') return "Usage Conflict: This card is assigned to another deck.";
+                    return "";
+                },
+
+                getGlobalConflictCount() {
+                    if(!this.activeDeck) return 0;
+                    return this.activeDeck.cards.filter(c => this.getOwnershipIcon(c) === '⧉').length;
+                },
+
                 async searchCards() {
                     if(this.searchQuery.length < 2) return;
                     const res = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(this.searchQuery)}`);
@@ -167,8 +215,7 @@
                 },
                 toggleCommander(card) {
                     this.activeDeck.cards.forEach(c => c.isCommander = false);
-                    card.isCommander = true;
-                    this.save();
+                    card.isCommander = true; this.save();
                 },
                 removeCompletely(card) {
                     this.activeDeck.cards = this.activeDeck.cards.filter(c => c.id !== card.id);
@@ -182,32 +229,10 @@
                         return c.type_line.includes(cat);
                     });
                 },
-                getOwnershipIcon(card) {
-                    // ENHANCED CLEANER: Strips parentheses used by Scryfall for lands
-                    const cleanName = (n) => n
-                        .split('(')[0]             // Removes "(262)" or "(Version A)"
-                        .split(' // ')[0]          // Removes backside names
-                        .replace(/[^\w\s]/gi, '')  // Strips special characters
-                        .toLowerCase().trim();
-                        
-                    const targetName = cleanName(card.name);
-                    
-                    const totalOwned = this.vault.reduce((sum, v) => {
-                        return cleanName(v.name) === targetName ? sum + v.qty : sum;
-                    }, 0);
-                    
-                    if(totalOwned === 0) return '✕';
-                    return totalOwned >= card.qty ? '✓' : '!';
-                },
-                getOwnershipStyle(card) {
-                    const icon = this.getOwnershipIcon(card);
-                    return icon === '✓' ? 'text-green-400' : (icon === '!' ? 'text-yellow-400' : 'text-red-500');
-                },
                 deleteDeck(id) {
-                    if(confirm("PERMANENTLY PURGE DATA?")) {
+                    if(confirm("PURGE DATA?")) {
                         this.decks = this.decks.filter(d => d.id !== id);
-                        this.activeDeck = this.decks[0] || null;
-                        this.save();
+                        this.activeDeck = this.decks[0] || null; this.save();
                     }
                 },
                 adjustQty(card, val) {
