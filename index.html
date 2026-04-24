@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FORGE — MTG Deck Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+
+    <style>
+        :root {
+            --gunmetal: #27363a;
+            --gunmetal-dark: #1a2527;
+            --gunmetal-deeper: #111c1e;
+            --gunmetal-light: #354c52;
+            --steel: #8fa9b0;
+            --white: #e8eef0;
+            --accent-cyan: #4dd9f0;
+            --owned-green: #3ddc84;
+            --missing-red: #ff4d5a;
+        }
+
+        body {
+            background: var(--gunmetal-deeper);
+            color: var(--white);
+            font-family: 'Rajdhani', sans-serif;
+            min-height: 100vh;
+            background-image: repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(77,217,240,0.03) 39px, rgba(77,217,240,0.03) 40px),
+                              repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(77,217,240,0.03) 39px, rgba(77,217,240,0.03) 40px);
+        }
+
+        .panel { background: var(--gunmetal-dark); border: 1px solid rgba(77,217,240,0.1); }
+        .btn-primary { border: 1px solid var(--accent-cyan); color: var(--accent-cyan); padding: 0.5rem 1rem; text-transform: uppercase; font-weight: 700; font-size: 0.75rem; transition: 0.2s; clip-path: polygon(0 0, 92% 0, 100% 25%, 100% 100%, 8% 100%, 0 75%); }
+        .btn-primary:hover { background: var(--accent-cyan); color: var(--gunmetal-deeper); }
+        
+        .badge-owned { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--owned-green); background: rgba(61,220,132,0.2); }
+        .badge-missing { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--missing-red); background: rgba(255,77,90,0.2); }
+        
+        .card-preview-float { position: fixed; z-index: 3000; width: 220px; pointer-events: none; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .scroll-area { overflow-y: auto; height: calc(100vh - 160px); scrollbar-width: thin; scrollbar-color: var(--accent-cyan) transparent; }
+    </style>
+</head>
+<body x-data="forgeApp()" x-init="init()">
+
+    <img x-show="hoverPreview.visible" :src="hoverPreview.url" class="card-preview-float" :style="`left:${hoverPreview.x+20}px; top:${hoverPreview.y-100}px`" />
+
+    <header class="panel border-b px-6 py-4 flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold tracking-tighter text-cyan-400" style="font-family: 'Bebas Neue'">FORGE</h1>
+            <p class="text-xs font-mono text-steel opacity-70">MTG COMMANDER TERMINAL</p>
+        </div>
+        <div class="flex gap-4">
+            <button @click="activeTab='decks'" class="btn-primary">Decks</button>
+            <button @click="activeTab='import'" class="btn-primary">Import CSV</button>
+        </div>
+    </header>
+
+    <main class="p-6">
+        <div x-show="activeTab==='decks'" class="grid grid-cols-12 gap-6">
+            <div class="col-span-3 panel p-4 h-fit">
+                <button @click="createNewDeck()" class="w-full btn-primary mb-4">+ Create New Deck</button>
+                <template x-for="deck in decks" :key="deck.id">
+                    <div @click="selectDeck(deck)" :class="activeDeck?.id === deck.id ? 'border-cyan-400' : 'border-transparent'" class="p-2 border-l-2 cursor-pointer hover:bg-white/5 transition mb-1">
+                        <div x-text="deck.name" class="font-bold"></div>
+                        <div class="text-xs text-steel" x-text="getCardCount(deck) + ' Cards'"></div>
+                    </div>
+                </template>
+            </div>
+
+            <div class="col-span-9" x-show="activeDeck">
+                <div class="panel p-6 mb-6 flex justify-between items-end">
+                    <div>
+                        <h2 class="text-4xl font-bold uppercase italic" x-text="activeDeck.name"></h2>
+                        <p class="font-mono text-cyan-400 text-sm">TOTAL VALUE: $<span x-text="getDeckPrice()"></span></p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs text-steel uppercase">Deck Status</p>
+                        <p class="text-4xl font-bold" :class="getCardCount(activeDeck) == 100 ? 'text-green-400' : 'text-red-400'" x-text="getCardCount(activeDeck) + ' / 100'"></p>
+                    </div>
+                </div>
+
+                <div class="relative mb-6">
+                    <input type="text" x-model="searchQuery" @input.debounce.500ms="searchCards()" placeholder="Search Scryfall for cards..." class="w-full bg-black/40 border border-white/10 p-4 rounded font-mono focus:border-cyan-400 outline-none">
+                    <div x-show="searchResults.length" class="absolute top-full left-0 w-full bg-gunmetal-dark border border-white/20 z-50 max-h-80 overflow-y-auto">
+                        <template x-for="card in searchResults" :key="card.id">
+                            <div class="p-3 hover:bg-cyan-400/10 flex justify-between items-center cursor-pointer border-b border-white/5">
+                                <div class="flex items-center gap-3">
+                                    <div :class="isOwned(card.name) ? 'badge-owned' : 'badge-missing'"></div>
+                                    <span x-text="card.name" class="font-bold" @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()"></span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button @click="addCard(card, true)" class="text-[10px] border border-cyan-400 px-2 py-1 text-cyan-400 uppercase">Set Commander</button>
+                                    <button @click="addCard(card)" class="text-[10px] bg-cyan-400 text-black px-2 py-1 font-bold uppercase">+ Add</button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="scroll-area grid grid-cols-2 gap-4">
+                    <template x-for="card in activeDeck.cards" :key="card.id">
+                        <div class="panel p-3 flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <div :class="isOwned(card.name) ? 'badge-owned' : 'badge-missing'"></div>
+                                <div>
+                                    <p x-text="card.name" class="font-bold text-sm" @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()"></p>
+                                    <p class="text-[10px] text-steel" x-text="card.id === activeDeck.commanderId ? 'COMMANDER' : card.type_line"></p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <div class="flex items-center bg-black/20 rounded">
+                                    <button @click="updateQty(card, -1)" class="px-2 text-red-400">-</button>
+                                    <span x-text="card.qty" class="px-2 font-mono text-sm"></span>
+                                    <button @click="updateQty(card, 1)" class="px-2 text-green-400">+</button>
+                                </div>
+                                <button @click="removeCard(card)" class="text-steel hover:text-white">✕</button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="activeTab==='import'" class="max-w-2xl mx-auto panel p-10 text-center">
+            <h2 class="text-2xl font-bold mb-4">IMPORT TCGPLAYER COLLECTION</h2>
+            <p class="text-steel mb-6">Upload your .csv file here to sync your ownership badges.</p>
+            <input type="file" @change="importCSV" class="block w-full text-sm text-steel file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cyan-400 file:text-black hover:file:bg-cyan-500 cursor-pointer">
+        </div>
+    </main>
+
+    <script>
+        function forgeApp() {
+            return {
+                activeTab: 'decks',
+                activeDeck: null,
+                decks: JSON.parse(localStorage.getItem('decks') || '[]'),
+                collection: JSON.parse(localStorage.getItem('collection') || '[]'),
+                searchQuery: '',
+                searchResults: [],
+                hoverPreview: { visible: false, url: '', x: 0, y: 0 },
+
+                init() {
+                    if (this.decks.length) this.activeDeck = this.decks[0];
+                },
+
+                createNewDeck() {
+                    const name = prompt("Deck Name:");
+                    if (!name) return;
+                    const newDeck = { id: Date.now(), name, cards: [], commanderId: null };
+                    this.decks.push(newDeck);
+                    this.activeDeck = newDeck;
+                    this.save();
+                },
+
+                async searchCards() {
+                    if (this.searchQuery.length < 3) return;
+                    const res = await fetch(`https://api.scryfall.com/cards/search?q=${this.searchQuery}`);
+                    const data = await res.json();
+                    this.searchResults = data.data?.slice(0, 10) || [];
+                },
+
+                addCard(card, isCommander = false) {
+                    const existing = this.activeDeck.cards.find(c => c.id === card.id);
+                    if (existing) {
+                        existing.qty++;
+                    } else {
+                        this.activeDeck.cards.push({ ...card, qty: 1 });
+                    }
+                    if (isCommander) this.activeDeck.commanderId = card.id;
+                    this.searchResults = [];
+                    this.searchQuery = '';
+                    this.save();
+                },
+
+                updateQty(card, delta) {
+                    card.qty += delta;
+                    if (card.qty <= 0) this.removeCard(card);
+                    this.save();
+                },
+
+                removeCard(card) {
+                    this.activeDeck.cards = this.activeDeck.cards.filter(c => c.id !== card.id);
+                    if (this.activeDeck.commanderId === card.id) this.activeDeck.commanderId = null;
+                    this.save();
+                },
+
+                getCardCount(deck) {
+                    return deck.cards.reduce((sum, c) => sum + c.qty, 0);
+                },
+
+                getDeckPrice() {
+                    return this.activeDeck.cards.reduce((sum, c) => sum + (parseFloat(c.prices.usd || 0) * c.qty), 0).toFixed(2);
+                },
+
+                isOwned(name) {
+                    return this.collection.includes(name.toLowerCase());
+                },
+
+                importCSV(e) {
+                    const file = e.target.files[0];
+                    const reader = new FileReader();
+                    reader.onload = (f) => {
+                        const rows = f.target.result.split('\n');
+                        this.collection = rows.map(r => r.split(',')[3]?.replace(/"/g, '').toLowerCase()).filter(Boolean);
+                        localStorage.setItem('collection', JSON.stringify(this.collection));
+                        alert('Collection Synced!');
+                        this.activeTab = 'decks';
+                    };
+                    reader.readAsText(file);
+                },
+
+                save() {
+                    localStorage.setItem('decks', JSON.stringify(this.decks));
+                },
+
+                showPreview(e, url) {
+                    this.hoverPreview = { visible: true, url, x: e.clientX, y: e.clientY };
+                },
+                hidePreview() { this.hoverPreview.visible = false; }
+            }
+        }
+    </script>
+</body>
+</html>
