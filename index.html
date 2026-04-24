@@ -143,104 +143,128 @@
             </div>
         </div>
 
-        <div x-show="activeTab==='import'" class="max-w-2xl mx-auto panel p-10 text-center">
-            <h2 class="text-2xl font-bold mb-4">IMPORT TCGPLAYER COLLECTION</h2>
-            <p class="text-steel mb-6">Upload your .csv file here to sync your ownership badges.</p>
-            <input type="file" @change="importCSV" class="block w-full text-sm text-steel file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cyan-400 file:text-black hover:file:bg-cyan-500 cursor-pointer">
-        </div>
+        <div x-show="activeTab==='import'" class="max-w-4xl mx-auto">
+    <div class="panel p-8">
+        <h2 class="text-2xl font-bold mb-2 uppercase italic text-cyan-400">Manual Data Uplink</h2>
+        <p class="text-steel mb-6 text-sm font-mono">PASTE YOUR CARD LIST BELOW. FORMAT: "1 Card Name" PER LINE.</p>
+        
+        <textarea 
+            x-model="bulkText" 
+            placeholder="Example:
+1 Sol Ring
+1 Arcane Signet
+32 Island" 
+            class="w-full h-80 bg-black/40 border border-white/10 p-4 rounded font-mono text-sm focus:border-cyan-400 outline-none mb-4"
+        ></textarea>
+
+        <button @click="processBulkText()" class="btn-primary w-full py-4 text-lg">
+            Initialize Vault Sync
+        </button>
+    </div>
+</div>
     </main>
 
-    <script>
-        function forgeApp() {
-            return {
-                activeTab: 'decks',
-                activeDeck: null,
-                decks: JSON.parse(localStorage.getItem('decks') || '[]'),
-                collection: JSON.parse(localStorage.getItem('collection') || '[]'),
-                searchQuery: '',
-                searchResults: [],
-                hoverPreview: { visible: false, url: '', x: 0, y: 0 },
+   <script>
+    function forgeApp() {
+        return {
+            activeTab: 'decks',
+            bulkText: '',
+            // This is your main vault for both the gallery and the badges
+            collectionData: JSON.parse(localStorage.getItem('forge_vault') || '[]'),
+            activeDeck: null,
+            decks: JSON.parse(localStorage.getItem('decks') || '[]'),
+            searchQuery: '',
+            searchResults: [],
+            hoverPreview: { visible: false, url: '', x: 0, y: 0 },
 
-                init() {
-                    if (this.decks.length) this.activeDeck = this.decks[0];
-                },
+            init() {
+                if (this.decks.length) this.activeDeck = this.decks[0];
+            },
 
-                createNewDeck() {
-                    const name = prompt("Deck Name:");
-                    if (!name) return;
-                    const newDeck = { id: Date.now(), name, cards: [], commanderId: null };
-                    this.decks.push(newDeck);
-                    this.activeDeck = newDeck;
-                    this.save();
-                },
-
-                async searchCards() {
-                    if (this.searchQuery.length < 3) return;
-                    const res = await fetch(`https://api.scryfall.com/cards/search?q=${this.searchQuery}`);
-                    const data = await res.json();
-                    this.searchResults = data.data?.slice(0, 10) || [];
-                },
-
-                addCard(card, isCommander = false) {
-                    const existing = this.activeDeck.cards.find(c => c.id === card.id);
-                    if (existing) {
-                        existing.qty++;
-                    } else {
-                        this.activeDeck.cards.push({ ...card, qty: 1 });
+            processBulkText() {
+                if (!this.bulkText.trim()) return;
+                const lines = this.bulkText.split('\n');
+                const parsedCards = lines.map(line => {
+                    const match = line.trim().match(/^(\d+)\s+(.+)$/);
+                    if (match) {
+                        return { qty: parseInt(match[1]), name: match[2].trim() };
                     }
-                    if (isCommander) this.activeDeck.commanderId = card.id;
-                    this.searchResults = [];
-                    this.searchQuery = '';
-                    this.save();
-                },
+                    return line.trim() ? { qty: 1, name: line.trim() } : null;
+                }).filter(Boolean);
 
-                updateQty(card, delta) {
-                    card.qty += delta;
-                    if (card.qty <= 0) this.removeCard(card);
-                    this.save();
-                },
+                this.collectionData = parsedCards;
+                localStorage.setItem('forge_vault', JSON.stringify(this.collectionData));
+                alert(`Uplink Complete: ${parsedCards.length} entries synced.`);
+                this.activeTab = 'decks';
+                this.bulkText = '';
+            },
 
-                removeCard(card) {
-                    this.activeDeck.cards = this.activeDeck.cards.filter(c => c.id !== card.id);
-                    if (this.activeDeck.commanderId === card.id) this.activeDeck.commanderId = null;
-                    this.save();
-                },
+            createNewDeck() {
+                const name = prompt("Deck Name:");
+                if (!name) return;
+                const newDeck = { id: Date.now(), name, cards: [], commanderId: null };
+                this.decks.push(newDeck);
+                this.activeDeck = newDeck;
+                this.save();
+            },
 
-                getCardCount(deck) {
-                    return deck.cards.reduce((sum, c) => sum + c.qty, 0);
-                },
+            async searchCards() {
+                if (this.searchQuery.length < 3) return;
+                const res = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(this.searchQuery)}`);
+                const data = await res.json();
+                this.searchResults = data.data?.slice(0, 10) || [];
+            },
 
-                getDeckPrice() {
-                    return this.activeDeck.cards.reduce((sum, c) => sum + (parseFloat(c.prices.usd || 0) * c.qty), 0).toFixed(2);
-                },
+            addCard(card, isCommander = false) {
+                if (!this.activeDeck) return;
+                const existing = this.activeDeck.cards.find(c => c.id === card.id);
+                if (existing) {
+                    existing.qty++;
+                } else {
+                    this.activeDeck.cards.push({ ...card, qty: 1 });
+                }
+                if (isCommander) this.activeDeck.commanderId = card.id;
+                this.searchResults = [];
+                this.searchQuery = '';
+                this.save();
+            },
 
-                isOwned(name) {
-                    return this.collection.includes(name.toLowerCase());
-                },
+            updateQty(card, delta) {
+                card.qty += delta;
+                if (card.qty <= 0) this.removeCard(card);
+                this.save();
+            },
 
-                importCSV(e) {
-                    const file = e.target.files[0];
-                    const reader = new FileReader();
-                    reader.onload = (f) => {
-                        const rows = f.target.result.split('\n');
-                        this.collection = rows.map(r => r.split(',')[3]?.replace(/"/g, '').toLowerCase()).filter(Boolean);
-                        localStorage.setItem('collection', JSON.stringify(this.collection));
-                        alert('Collection Synced!');
-                        this.activeTab = 'decks';
-                    };
-                    reader.readAsText(file);
-                },
+            removeCard(card) {
+                this.activeDeck.cards = this.activeDeck.cards.filter(c => c.id !== card.id);
+                if (this.activeDeck.commanderId === card.id) this.activeDeck.commanderId = null;
+                this.save();
+            },
 
-                save() {
-                    localStorage.setItem('decks', JSON.stringify(this.decks));
-                },
+            getCardCount(deck) {
+                return deck ? deck.cards.reduce((sum, c) => sum + c.qty, 0) : 0;
+            },
 
-                showPreview(e, url) {
-                    this.hoverPreview = { visible: true, url, x: e.clientX, y: e.clientY };
-                },
-                hidePreview() { this.hoverPreview.visible = false; }
-            }
+            getDeckPrice() {
+                if (!this.activeDeck) return "0.00";
+                return this.activeDeck.cards.reduce((sum, c) => sum + (parseFloat(c.prices?.usd || 0) * c.qty), 0).toFixed(2);
+            },
+
+            // CORRECTED OWNERSHIP CHECK
+            isOwned(name) {
+                return this.collectionData.some(c => c.name.toLowerCase() === name.toLowerCase());
+            },
+
+            save() {
+                localStorage.setItem('decks', JSON.stringify(this.decks));
+            },
+
+            showPreview(e, url) {
+                this.hoverPreview = { visible: true, url, x: e.clientX, y: e.clientY };
+            },
+            hidePreview() { this.hoverPreview.visible = false; }
         }
-    </script>
+    }
+</script>
 </body>
 </html>
