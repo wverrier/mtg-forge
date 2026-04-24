@@ -28,7 +28,7 @@
                 <h3 class="text-xl font-bold italic brand-blue">DECK // UPLINK</h3>
                 <button @click="showImportModal = false" class="text-steel hover:text-white font-mono">X CLOSE</button>
             </div>
-            <p class="text-[10px] text-steel uppercase tracking-widest">Paste your list below (1 Card Name)</p>
+            <p class="text-[10px] text-steel uppercase tracking-widest">Paste your list below (Format: 1 Card Name)</p>
             <textarea x-model="importRaw" class="w-full h-64 bg-black/50 border border-white/10 p-4 font-mono text-xs text-cyan-200 outline-none focus:border-cyan-400" placeholder="1 Dogmeat, Ever Loyal&#10;1 Swamp..."></textarea>
             <div class="flex justify-end gap-4">
                 <div x-show="isImporting" class="text-xs italic animate-pulse brand-blue py-2">PROCESSING NEURAL LINK...</div>
@@ -77,7 +77,7 @@
                     <p class="text-[10px] text-steel uppercase tracking-[0.3em] mb-1">Combat Readiness</p>
                     <div class="flex gap-6 font-mono text-sm brand-blue font-bold">
                         <span>COUNT: <span x-text="countAllCards(activeDeck)"></span></span>
-                        <span>CONFLICTS: <span class="text-white" x-text="getGlobalConflictCount()"></span></span>
+                        <span>VALUE: <span class="text-white">$<span x-text="getDeckPrice()"></span></span></span>
                     </div>
                 </div>
                 <div class="z-10 flex flex-col items-end gap-2">
@@ -179,28 +179,21 @@
                     const lines = this.importRaw.split('\n');
                     for(let line of lines) {
                         if(!line.trim()) continue;
-                        // Match quantity and card name (ignores brackets and numbers after name)
                         const match = line.match(/^(\d+)\s+([^\[\(]+)/);
                         if(match) {
                             const qty = parseInt(match[1]);
                             const name = match[2].trim();
-                            
                             try {
                                 const res = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`);
                                 const card = await res.json();
                                 if(card.name) {
-                                    for(let i=0; i<qty; i++) {
-                                        this.addCard(card);
-                                    }
+                                    for(let i=0; i<qty; i++) { this.addCard(card); }
                                 }
-                            } catch(e) { console.error("Neural uplink failed for:", name); }
-                            // Tiny delay to avoid rate limiting
+                            } catch(e) { console.error("Neural uplink failed:", name); }
                             await new Promise(r => setTimeout(r, 100));
                         }
                     }
-                    this.isImporting = false;
-                    this.showImportModal = false;
-                    this.importRaw = '';
+                    this.isImporting = false; this.showImportModal = false; this.importRaw = '';
                 },
 
                 getOwnershipIcon(card) {
@@ -226,9 +219,12 @@
                     return 'text-red-500';
                 },
 
-                getGlobalConflictCount() {
-                    if(!this.activeDeck) return 0;
-                    return this.activeDeck.cards.filter(c => this.getOwnershipIcon(c) === '⧉').length;
+                getDeckPrice() {
+                    if(!this.activeDeck?.cards) return '0.00';
+                    const price = this.activeDeck.cards.reduce((sum, c) => {
+                        return sum + (parseFloat(c.prices?.usd || 0) * c.qty);
+                    }, 0);
+                    return price.toFixed(2);
                 },
 
                 async searchCards() {
