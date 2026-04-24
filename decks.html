@@ -142,94 +142,97 @@
         </div>
     </main>
 
-    <script>
-        function deckApp() {
-            return {
-                decks: JSON.parse(localStorage.getItem('decks') || '[]'),
-                vault: JSON.parse(localStorage.getItem('forge_vault') || '[]'),
-                activeDeck: null, searchQuery: '', searchResults: [], viewMode: 'list',
-                categories: ['Commander', 'Creature', 'Sorcery', 'Instant', 'Artifact', 'Enchantment', 'Planeswalker', 'Land'],
-                hoverPreview: { visible: false, url: '', x: 0, y: 0 },
-                init() { if(this.decks.length) this.activeDeck = this.decks[0]; },
-                async searchCards() {
-                    if(this.searchQuery.length < 2) return;
-                    const res = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(this.searchQuery)}`);
-                    const data = await res.json();
-                    this.searchResults = data.data?.slice(0, 10) || [];
-                },
-                addCard(card) {
-                    if(!this.activeDeck.cards) this.activeDeck.cards = [];
-                    let existing = this.activeDeck.cards.find(c => c.name === card.name);
-                    existing ? existing.qty++ : this.activeDeck.cards.push({
-                        id: card.id, 
-                        name: card.name, 
-                        qty: 1, 
-                        isCommander: false, 
-                        image_uris: card.image_uris, 
-                        type_line: card.type_line,
-                        prices: card.prices
-                    });
-                    this.save(); this.searchResults = []; this.searchQuery = '';
-                },
-                toggleCommander(card) {
-                    this.activeDeck.cards.forEach(c => c.isCommander = false);
-                    card.isCommander = true;
+   <script>
+    function deckApp() {
+        return {
+            decks: JSON.parse(localStorage.getItem('decks') || '[]'),
+            vault: JSON.parse(localStorage.getItem('forge_vault') || '[]'),
+            activeDeck: null, searchQuery: '', searchResults: [], viewMode: 'list',
+            categories: ['Commander', 'Creature', 'Sorcery', 'Instant', 'Artifact', 'Enchantment', 'Planeswalker', 'Land'],
+            hoverPreview: { visible: false, url: '', x: 0, y: 0 },
+            init() { if(this.decks.length) this.activeDeck = this.decks[0]; },
+            async searchCards() {
+                if(this.searchQuery.length < 2) return;
+                const res = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(this.searchQuery)}`);
+                const data = await res.json();
+                this.searchResults = data.data?.slice(0, 10) || [];
+            },
+            addCard(card) {
+                if(!this.activeDeck.cards) this.activeDeck.cards = [];
+                let existing = this.activeDeck.cards.find(c => c.name === card.name);
+                existing ? existing.qty++ : this.activeDeck.cards.push({
+                    id: card.id, 
+                    name: card.name, 
+                    qty: 1, 
+                    isCommander: false, 
+                    image_uris: card.image_uris, 
+                    type_line: card.type_line,
+                    prices: card.prices
+                });
+                this.save(); this.searchResults = []; this.searchQuery = '';
+            },
+            toggleCommander(card) {
+                this.activeDeck.cards.forEach(c => c.isCommander = false);
+                card.isCommander = true;
+                this.save();
+            },
+            removeCompletely(card) {
+                this.activeDeck.cards = this.activeDeck.cards.filter(c => c.id !== card.id);
+                this.save();
+            },
+            getCardsByCat(cat) {
+                if(!this.activeDeck || !this.activeDeck.cards) return [];
+                return this.activeDeck.cards.filter(c => {
+                    if(cat === 'Commander') return c.isCommander;
+                    if(c.isCommander) return false;
+                    return c.type_line.includes(cat);
+                });
+            },
+            getOwnershipIcon(card) {
+                // FIXED: Strict exact-match name cleaning
+                const cleanName = (n) => n.split(' // ')[0].replace(/[^\w\s]/gi, '').toLowerCase().trim();
+                const targetName = cleanName(card.name);
+                
+                const totalOwned = this.vault.reduce((sum, v) => {
+                    // Using exact equality (===) to prevent "Exile" matching "Zuko's Exile"
+                    return cleanName(v.name) === targetName ? sum + v.qty : sum;
+                }, 0);
+                
+                if(totalOwned === 0) return '✕';
+                return totalOwned >= card.qty ? '✓' : '!';
+            },
+            getOwnershipStyle(card) {
+                const icon = this.getOwnershipIcon(card);
+                return icon === '✓' ? 'text-green-400' : (icon === '!' ? 'text-yellow-400' : 'text-red-500');
+            },
+            deleteDeck(id) {
+                if(confirm("PURGE SYSTEM DATA?")) {
+                    this.decks = this.decks.filter(d => d.id !== id);
+                    this.activeDeck = this.decks[0] || null;
                     this.save();
-                },
-                removeCompletely(card) {
-                    this.activeDeck.cards = this.activeDeck.cards.filter(c => c.id !== card.id);
-                    this.save();
-                },
-                getCardsByCat(cat) {
-                    if(!this.activeDeck || !this.activeDeck.cards) return [];
-                    return this.activeDeck.cards.filter(c => {
-                        if(cat === 'Commander') return c.isCommander;
-                        if(c.isCommander) return false;
-                        return c.type_line.includes(cat);
-                    });
-                },
-                getOwnershipIcon(card) {
-                    const cleanName = (n) => n.split(' // ')[0].replace(/[^\w\s]/gi, '').toLowerCase().trim();
-                    const targetName = cleanName(card.name);
-                    const totalOwned = this.vault.reduce((sum, v) => {
-                        return cleanName(v.name).includes(targetName) || targetName.includes(cleanName(v.name)) 
-                            ? sum + v.qty : sum;
-                    }, 0);
-                    if(totalOwned === 0) return '✕';
-                    return totalOwned >= card.qty ? '✓' : '!';
-                },
-                getOwnershipStyle(card) {
-                    const icon = this.getOwnershipIcon(card);
-                    return icon === '✓' ? 'text-green-400' : (icon === '!' ? 'text-yellow-400' : 'text-red-500');
-                },
-                deleteDeck(id) {
-                    if(confirm("PURGE SYSTEM DATA?")) {
-                        this.decks = this.decks.filter(d => d.id !== id);
-                        this.activeDeck = this.decks[0] || null;
-                        this.save();
-                    }
-                },
-                adjustQty(card, val) {
-                    card.qty += val;
-                    if(card.qty <= 0) this.removeCompletely(card);
-                    this.save();
-                },
-                countAllCards(deck) { return deck?.cards?.reduce((s, c) => s + c.qty, 0) || 0; },
-                getDeckPrice() { return this.activeDeck?.cards?.reduce((s, c) => s + (parseFloat(c.prices?.usd || 0) * c.qty), 0).toFixed(2) || '0.00'; },
-                save() { localStorage.setItem('decks', JSON.stringify(this.decks)); },
-                showPreview(e, url) { this.hoverPreview = { visible: true, url, x: e.clientX, y: e.clientY }; },
-                hidePreview() { this.hoverPreview.visible = false; },
-                createNewDeck() {
-                    const name = prompt("Terminal ID:");
-                    if(name) { 
-                        const newDeck = {id: Date.now(), name, cards: [], sideboard: []};
-                        this.decks.push(newDeck); 
-                        this.activeDeck = newDeck;
-                        this.save(); 
-                    }
+                }
+            },
+            adjustQty(card, val) {
+                card.qty += val;
+                if(card.qty <= 0) this.removeCompletely(card);
+                this.save();
+            },
+            countAllCards(deck) { return deck?.cards?.reduce((s, c) => s + c.qty, 0) || 0; },
+            getDeckPrice() { return this.activeDeck?.cards?.reduce((s, c) => s + (parseFloat(c.prices?.usd || 0) * c.qty), 0).toFixed(2) || '0.00'; },
+            save() { localStorage.setItem('decks', JSON.stringify(this.decks)); },
+            showPreview(e, url) { this.hoverPreview = { visible: true, url, x: e.clientX, y: e.clientY }; },
+            hidePreview() { this.hoverPreview.visible = false; },
+            createNewDeck() {
+                const name = prompt("Terminal ID:");
+                if(name) { 
+                    const newDeck = {id: Date.now(), name, cards: [], sideboard: []};
+                    this.decks.push(newDeck); 
+                    this.activeDeck = newDeck;
+                    this.save(); 
                 }
             }
         }
-    </script>
+    }
+</script>
 </body>
 </html>
