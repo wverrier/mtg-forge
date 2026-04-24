@@ -19,7 +19,7 @@
 </head>
 <body x-data="deckApp()" x-init="init()">
     
-    <img x-show="hoverPreview.visible" :src="hoverPreview.url" class="card-preview-float shadow-2xl" :style="`left:${hoverPreview.x+20}px; top:${hoverPreview.y-120}px`" />
+    <img x-show="hoverPreview.visible && viewMode === 'list'" :src="hoverPreview.url" class="card-preview-float shadow-2xl" :style="`left:${hoverPreview.x+20}px; top:${hoverPreview.y-120}px`" />
 
     <header class="panel px-6 py-4 flex justify-between items-center border-b border-cyan-400/20">
         <div class="flex items-center gap-6">
@@ -46,7 +46,7 @@
                             <div x-text="deck.name" class="font-bold text-sm uppercase truncate"></div>
                             <div class="text-[9px] font-mono brand-blue" x-text="countAllCards(deck) + ' UNITS'"></div>
                         </div>
-                        <button @click.stop="deleteDeck(deck.id)" class="absolute top-3 right-2 text-[8px] font-black text-red-500 opacity-0 group-hover:opacity-100 transition-opacity hover:underline">DELETE</button>
+                        <button @click.stop="deleteDeck(deck.id)" class="absolute top-3 right-2 text-[8px] font-black text-red-500 opacity-0 group-hover:opacity-100 transition-opacity hover:underline">PURGE</button>
                     </div>
                 </template>
             </div>
@@ -93,7 +93,11 @@
                                         <div class="flex items-center gap-2 truncate">
                                             <span :class="getOwnershipStyle(card)" class="text-[10px] font-bold w-4" x-text="getOwnershipIcon(card)"></span>
                                             <span @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()" x-text="card.name" class="text-xs font-bold cursor-help truncate"></span>
-                                            <button x-show="card.type_line.includes('Creature')" @click="toggleCommander(card)" class="text-[8px] opacity-0 group-hover:opacity-100 bg-white/10 px-1 hover:bg-cyan-400 hover:text-black transition ml-2">SET CMDR</button>
+                                            
+                                            <div class="flex gap-2 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button x-show="card.type_line.includes('Creature')" @click="toggleCommander(card)" class="text-[8px] bg-white/10 px-1 hover:bg-cyan-400 hover:text-black transition">SET CMDR</button>
+                                                <button @click="removeCompletely(card)" class="text-[8px] bg-red-900/30 text-red-500 px-1 hover:bg-red-500 hover:text-white transition uppercase font-bold">Delete</button>
+                                            </div>
                                         </div>
                                         <div class="flex items-center gap-3">
                                             <div class="flex items-center bg-black/20 rounded">
@@ -105,6 +109,16 @@
                                     </div>
                                 </template>
                             </div>
+
+                            <div x-show="viewMode === 'visual'" class="grid grid-cols-4 md:grid-cols-5 gap-4">
+                                <template x-for="card in getCardsByCat(cat)" :key="card.id">
+                                    <div class="relative group cursor-pointer" @click="adjustQty(card, 1)" @contextmenu.prevent="adjustQty(card, -1)">
+                                        <img :src="card.image_uris?.normal" class="rounded-lg border-2 border-transparent hover:border-cyan-400 transition shadow-lg w-full">
+                                        <div class="absolute top-1 right-1 bg-black/80 brand-blue text-[10px] font-bold px-2 py-0.5 rounded border border-cyan-400/30" x-text="'x'+card.qty"></div>
+                                        <div :class="getOwnershipStyle(card)" class="absolute bottom-1 right-1 px-1.5 py-0.5 text-[10px] rounded bg-black/80 shadow-md border border-white/10" x-text="getOwnershipIcon(card)"></div>
+                                    </div>
+                                </template>
+                            </div>
                         </div>
                     </template>
                 </div>
@@ -112,6 +126,7 @@
                 <div class="col-span-3 flex flex-col gap-4 overflow-hidden">
                     <div class="panel p-4 flex-1 scroll-v">
                         <h3 class="category-header text-xs text-red-400">Tactical Sideboard</h3>
+                        <p class="text-[8px] text-steel uppercase mb-2">Right-Click Visuals to adjust</p>
                         <template x-for="card in activeDeck.sideboard" :key="card.id">
                             <div class="flex justify-between py-1 text-[11px] group">
                                 <span x-text="card.name" class="truncate font-bold opacity-80 group-hover:opacity-100" @mouseenter="showPreview($event, card.image_uris?.normal)"></span>
@@ -145,7 +160,15 @@
                 addCard(card) {
                     if(!this.activeDeck.cards) this.activeDeck.cards = [];
                     let existing = this.activeDeck.cards.find(c => c.name === card.name);
-                    existing ? existing.qty++ : this.activeDeck.cards.push({...card, qty: 1, isCommander: false});
+                    existing ? existing.qty++ : this.activeDeck.cards.push({
+                        id: card.id, 
+                        name: card.name, 
+                        qty: 1, 
+                        isCommander: false, 
+                        image_uris: card.image_uris, 
+                        type_line: card.type_line,
+                        prices: card.prices
+                    });
                     this.save(); this.searchResults = []; this.searchQuery = '';
                 },
                 toggleCommander(card) {
@@ -153,8 +176,12 @@
                     card.isCommander = true;
                     this.save();
                 },
+                removeCompletely(card) {
+                    this.activeDeck.cards = this.activeDeck.cards.filter(c => c.id !== card.id);
+                    this.save();
+                },
                 getCardsByCat(cat) {
-                    if(!this.activeDeck) return [];
+                    if(!this.activeDeck || !this.activeDeck.cards) return [];
                     return this.activeDeck.cards.filter(c => {
                         if(cat === 'Commander') return c.isCommander;
                         if(c.isCommander) return false;
@@ -162,15 +189,12 @@
                     });
                 },
                 getOwnershipIcon(card) {
-                    // Logic: Clean names of both deck card and vault items for strict comparison
                     const cleanName = (n) => n.split(' // ')[0].replace(/[^\w\s]/gi, '').toLowerCase().trim();
                     const targetName = cleanName(card.name);
-                    
                     const totalOwned = this.vault.reduce((sum, v) => {
                         return cleanName(v.name).includes(targetName) || targetName.includes(cleanName(v.name)) 
                             ? sum + v.qty : sum;
                     }, 0);
-                    
                     if(totalOwned === 0) return '✕';
                     return totalOwned >= card.qty ? '✓' : '!';
                 },
@@ -187,17 +211,22 @@
                 },
                 adjustQty(card, val) {
                     card.qty += val;
-                    if(card.qty <= 0) this.activeDeck.cards = this.activeDeck.cards.filter(c => c.id !== card.id);
+                    if(card.qty <= 0) this.removeCompletely(card);
                     this.save();
                 },
-                countAllCards(deck) { return deck.cards?.reduce((s, c) => s + c.qty, 0) || 0; },
-                getDeckPrice() { return this.activeDeck.cards?.reduce((s, c) => s + (parseFloat(c.prices?.usd || 0) * c.qty), 0).toFixed(2) || '0.00'; },
+                countAllCards(deck) { return deck?.cards?.reduce((s, c) => s + c.qty, 0) || 0; },
+                getDeckPrice() { return this.activeDeck?.cards?.reduce((s, c) => s + (parseFloat(c.prices?.usd || 0) * c.qty), 0).toFixed(2) || '0.00'; },
                 save() { localStorage.setItem('decks', JSON.stringify(this.decks)); },
                 showPreview(e, url) { this.hoverPreview = { visible: true, url, x: e.clientX, y: e.clientY }; },
                 hidePreview() { this.hoverPreview.visible = false; },
                 createNewDeck() {
                     const name = prompt("Terminal ID:");
-                    if(name) { this.decks.push({id: Date.now(), name, cards: [], sideboard: []}); this.save(); }
+                    if(name) { 
+                        const newDeck = {id: Date.now(), name, cards: [], sideboard: []};
+                        this.decks.push(newDeck); 
+                        this.activeDeck = newDeck;
+                        this.save(); 
+                    }
                 }
             }
         }
