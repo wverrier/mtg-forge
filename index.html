@@ -46,43 +46,43 @@
     <img x-show="hoverPreview.visible" :src="hoverPreview.url" class="card-preview-float" :style="`left:${hoverPreview.x+20}px; top:${hoverPreview.y-100}px`" />
 
     <header class="panel border-b border-cyan-400/20 px-6 py-4 flex justify-between items-center sticky top-0 z-50 shadow-2xl">
-    <div class="flex items-center gap-8">
-        <div>
-            <h1 class="text-3xl font-bold tracking-tighter text-cyan-400" style="font-family: 'Bebas Neue'">FORGE</h1>
-            <p class="text-[10px] font-mono text-steel opacity-70 tracking-widest uppercase">Deck Construction Terminal</p>
+        <div class="flex items-center gap-8">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tighter text-cyan-400" style="font-family: 'Bebas Neue'">FORGE</h1>
+                <p class="text-[10px] font-mono text-steel opacity-70 tracking-widest uppercase">Deck Construction Terminal</p>
+            </div>
+            
+            <nav class="flex gap-1 ml-4 bg-black/20 p-1 rounded border border-white/5">
+                <button @click="activeTab='decks'" 
+                    :class="activeTab==='decks' ? 'bg-cyan-400 text-black' : 'text-steel hover:text-white'"
+                    class="px-4 py-1.5 text-xs font-bold uppercase tracking-tighter transition-all duration-200">
+                    Decks
+                </button>
+                
+                <a href="collection.html" 
+                    class="px-4 py-1.5 text-xs text-steel hover:text-white font-bold uppercase tracking-tighter transition-all duration-200">
+                    Collection
+                </a>
+                
+                <button @click="activeTab='import'" 
+                    :class="activeTab==='import' ? 'bg-cyan-400 text-black' : 'text-steel hover:text-white'"
+                    class="px-4 py-1.5 text-xs font-bold uppercase tracking-tighter transition-all duration-200">
+                    Import List
+                </button>
+            </nav>
         </div>
-        
-        <nav class="flex gap-1 ml-4 bg-black/20 p-1 rounded border border-white/5">
-            <button @click="activeTab='decks'" 
-                :class="activeTab==='decks' ? 'bg-cyan-400 text-black' : 'text-steel hover:text-white'"
-                class="px-4 py-1.5 text-xs font-bold uppercase tracking-tighter transition-all duration-200">
-                Decks
-            </button>
-            
-            <a href="collection.html" 
-                class="px-4 py-1.5 text-xs text-steel hover:text-white font-bold uppercase tracking-tighter transition-all duration-200">
-                Collection
-            </a>
-            
-            <button @click="activeTab='import'" 
-                :class="activeTab==='import' ? 'bg-cyan-400 text-black' : 'text-steel hover:text-white'"
-                class="px-4 py-1.5 text-xs font-bold uppercase tracking-tighter transition-all duration-200">
-                Import CSV
-            </button>
-        </nav>
-    </div>
 
-    <div class="hidden md:block">
-        <span class="text-[10px] font-mono text-cyan-400/50 uppercase">System Status: Online</span>
-    </div>
-</header>
+        <div class="hidden md:block">
+            <span class="text-[10px] font-mono text-cyan-400/50 uppercase">System Status: Online</span>
+        </div>
+    </header>
 
     <main class="p-6">
         <div x-show="activeTab==='decks'" class="grid grid-cols-12 gap-6">
             <div class="col-span-3 panel p-4 h-fit">
                 <button @click="createNewDeck()" class="w-full btn-primary mb-4">+ Create New Deck</button>
                 <template x-for="deck in decks" :key="deck.id">
-                    <div @click="selectDeck(deck)" :class="activeDeck?.id === deck.id ? 'border-cyan-400' : 'border-transparent'" class="p-2 border-l-2 cursor-pointer hover:bg-white/5 transition mb-1">
+                    <div @click="activeDeck = deck" :class="activeDeck?.id === deck.id ? 'border-cyan-400' : 'border-transparent'" class="p-2 border-l-2 cursor-pointer hover:bg-white/5 transition mb-1">
                         <div x-text="deck.name" class="font-bold"></div>
                         <div class="text-xs text-steel" x-text="getCardCount(deck) + ' Cards'"></div>
                     </div>
@@ -144,200 +144,164 @@
         </div>
 
         <div x-show="activeTab==='import'" class="max-w-4xl mx-auto">
-    <div class="panel p-8">
-        <h2 class="text-2xl font-bold mb-2 uppercase italic text-cyan-400">Manual Data Uplink</h2>
-        <p class="text-steel mb-6 text-sm font-mono">PASTE YOUR CARD LIST BELOW. FORMAT: "1 Card Name" PER LINE.</p>
-        
-        <textarea 
-            x-model="bulkText" 
-            placeholder="Example:
-1 Sol Ring
-1 Arcane Signet
-32 Island" 
-            class="w-full h-80 bg-black/40 border border-white/10 p-4 rounded font-mono text-sm focus:border-cyan-400 outline-none mb-4"
-        ></textarea>
+            <div class="panel p-8">
+                <h2 class="text-2xl font-bold mb-2 uppercase italic text-cyan-400">Manual Data Uplink</h2>
+                <p class="text-steel mb-6 text-sm font-mono">PASTE YOUR CARD LIST BELOW. SUPPORTED: "1 Card Name [SET] Number" or "1 Card Name"</p>
+                
+                <textarea 
+                    x-model="bulkText" 
+                    placeholder="Example:
+1 Conspiracy [ACR] 88
+2 Swamp [THS] 239" 
+                    class="w-full h-80 bg-black/40 border border-white/10 p-4 rounded font-mono text-sm focus:border-cyan-400 outline-none mb-4"
+                ></textarea>
 
-        <button @click="processBulkText()" class="btn-primary w-full py-4 text-lg">
-            Initialize Vault Sync
-        </button>
-    </div>
-</div>
+                <button @click="processBulkText()" class="btn-primary w-full py-4 text-lg">
+                    Initialize Vault Sync
+                </button>
+            </div>
+        </div>
     </main>
 
-   <script>
-   function forgeApp() {
-    return {
-        activeTab: 'decks',
-        bulkText: '',
-        collectionData: JSON.parse(localStorage.getItem('forge_vault') || '[]'),
-        activeDeck: null,
-        decks: JSON.parse(localStorage.getItem('decks') || '[]'),
-        searchQuery: '',
-        searchResults: [],
-        hoverPreview: { visible: false, url: '', x: 0, y: 0 },
+    <script>
+    function forgeApp() {
+        return {
+            activeTab: 'decks',
+            bulkText: '',
+            collectionData: JSON.parse(localStorage.getItem('forge_vault') || '[]'),
+            activeDeck: null,
+            decks: JSON.parse(localStorage.getItem('decks') || '[]'),
+            searchQuery: '',
+            searchResults: [],
+            hoverPreview: { visible: false, url: '', x: 0, y: 0 },
 
-        init() {
-            if (this.decks.length) this.activeDeck = this.decks[0];
-        },
+            init() {
+                if (this.decks.length) this.activeDeck = this.decks[0];
+            },
 
-       processBulkText() {
-    if (!this.bulkText.trim()) return;
+            processBulkText() {
+                if (!this.bulkText.trim()) return;
 
-    const shouldReplace = confirm("REPLACE vault? (OK) or ADD to quantities? (Cancel)");
-    const lines = this.bulkText.split('\n');
-    const newCards = [];
+                const shouldReplace = confirm("REPLACE vault? (OK) or ADD to quantities? (Cancel)");
+                const lines = this.bulkText.split('\n');
+                const newCards = [];
 
-    lines.forEach(line => {
-        const text = line.trim();
-        if (!text) return;
+                lines.forEach(line => {
+                    const text = line.trim();
+                    if (!text) return;
 
-        // IMPROVED REGEX: 
-        // Handles variation in spacing between Name, [SET], and Number
-        const tcgMatch = text.match(/^(\d+)\s+(.+?)\s+\[(.+?)\]\s+(\d+)$/);
-        
-        if (tcgMatch) {
-            let cleanName = tcgMatch[2].split(' (')[0].trim();
-            newCards.push({
-                qty: parseInt(tcgMatch[1]),
-                name: cleanName,
-                set: tcgMatch[3].toLowerCase(),
-                number: tcgMatch[4]
-            });
-        } else {
-            // Fallback for: 1 Conspiracy
-            const simpleMatch = text.match(/^(\d+)\s+(.+)$/);
-            if (simpleMatch) {
-                newCards.push({
-                    qty: parseInt(simpleMatch[1]),
-                    name: simpleMatch[2].trim()
-                });
-            }
-        }
-    });
-
-    if (shouldReplace) {
-        this.collectionData = newCards;
-    } else {
-        newCards.forEach(newCard => {
-            // Check if card with same name AND set/number exists to prevent dupes
-            const existing = this.collectionData.find(c => 
-                c.name.toLowerCase() === newCard.name.toLowerCase() && 
-                c.set === newCard.set && 
-                c.number === newCard.number
-            );
-            
-            if (existing) {
-                existing.qty += newCard.qty;
-            } else {
-                this.collectionData.push(newCard);
-            }
-        });
-    }
-
-    localStorage.setItem('forge_vault', JSON.stringify(this.collectionData));
-    alert(`Success! Found ${newCards.length} cards.`);
-    this.bulkText = '';
-    this.activeTab = 'decks';
-}
-
-            // 3. Sync Logic
-            if (shouldReplace) {
-                this.collectionData = newCards;
-            } else {
-                newCards.forEach(newCard => {
-                    // Check ownership by name to prevent duplicates
-                    const existing = this.collectionData.find(c => c.name.toLowerCase() === newCard.name.toLowerCase());
-                    if (existing) {
-                        existing.qty += newCard.qty;
+                    // Regex for: Qty Name [SET] Number
+                    const tcgMatch = text.match(/^(\d+)\s+(.+?)\s+\[(.+?)\]\s+(\d+)$/);
+                    
+                    if (tcgMatch) {
+                        let cleanName = tcgMatch[2].split(' (')[0].trim();
+                        newCards.push({
+                            qty: parseInt(tcgMatch[1]),
+                            name: cleanName,
+                            set: tcgMatch[3].toLowerCase(),
+                            number: tcgMatch[4]
+                        });
                     } else {
-                        this.collectionData.push(newCard);
+                        const simpleMatch = text.match(/^(\d+)\s+(.+)$/);
+                        if (simpleMatch) {
+                            newCards.push({
+                                qty: parseInt(simpleMatch[1]),
+                                name: simpleMatch[2].trim()
+                            });
+                        }
                     }
                 });
-            }
 
-            // 4. Save and Reset
-            localStorage.setItem('forge_vault', JSON.stringify(this.collectionData));
-            alert(`Vault Synced: ${this.collectionData.length} unique items.`);
-            this.bulkText = '';
-            this.activeTab = 'decks';
-        },
+                if (shouldReplace) {
+                    this.collectionData = newCards;
+                } else {
+                    newCards.forEach(newCard => {
+                        const existing = this.collectionData.find(c => 
+                            c.name.toLowerCase() === newCard.name.toLowerCase() && 
+                            c.set === newCard.set && 
+                            c.number === newCard.number
+                        );
+                        
+                        if (existing) {
+                            existing.qty += newCard.qty;
+                        } else {
+                            this.collectionData.push(newCard);
+                        }
+                    });
+                }
 
-      
-       getCardImage(card) {
-    // Safety check: if card doesn't exist yet, return a blank pixel or placeholder
-    if (!card) return 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+                localStorage.setItem('forge_vault', JSON.stringify(this.collectionData));
+                alert(`Vault Updated: ${this.collectionData.length} unique entries.`);
+                this.bulkText = '';
+                this.activeTab = 'decks';
+            },
 
-    if (card.set && card.number) {
-        return `https://api.scryfall.com/cards/${card.set.toLowerCase()}/${card.number}?format=image`;
+            isOwned(name) {
+                if (!name) return false;
+                return this.collectionData.some(c => c.name.toLowerCase() === name.toLowerCase());
+            },
+
+            async searchCards() {
+                if (this.searchQuery.length < 3) return;
+                const res = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(this.searchQuery)}`);
+                const data = await res.json();
+                this.searchResults = data.data?.slice(0, 10) || [];
+            },
+
+            createNewDeck() {
+                const name = prompt("Deck Name:");
+                if (!name) return;
+                const newDeck = { id: Date.now(), name, cards: [], commanderId: null };
+                this.decks.push(newDeck);
+                this.activeDeck = newDeck;
+                this.save();
+            },
+
+            addCard(card, isCommander = false) {
+                if (!this.activeDeck) return;
+                const existing = this.activeDeck.cards.find(c => c.id === card.id);
+                if (existing) {
+                    existing.qty++;
+                } else {
+                    this.activeDeck.cards.push({ ...card, qty: 1 });
+                }
+                if (isCommander) this.activeDeck.commanderId = card.id;
+                this.searchResults = [];
+                this.searchQuery = '';
+                this.save();
+            },
+
+            updateQty(card, delta) {
+                card.qty += delta;
+                if (card.qty <= 0) this.removeCard(card);
+                this.save();
+            },
+
+            removeCard(card) {
+                this.activeDeck.cards = this.activeDeck.cards.filter(c => c.id !== card.id);
+                if (this.activeDeck.commanderId === card.id) this.activeDeck.commanderId = null;
+                this.save();
+            },
+
+            getCardCount(deck) {
+                return deck ? deck.cards.reduce((sum, c) => sum + c.qty, 0) : 0;
+            },
+
+            getDeckPrice() {
+                if (!this.activeDeck) return "0.00";
+                return this.activeDeck.cards.reduce((sum, c) => sum + (parseFloat(c.prices?.usd || 0) * c.qty), 0).toFixed(2);
+            },
+
+            save() {
+                localStorage.setItem('decks', JSON.stringify(this.decks));
+            },
+
+            showPreview(e, url) {
+                this.hoverPreview = { visible: true, url, x: e.clientX, y: e.clientY };
+            },
+            hidePreview() { this.hoverPreview.visible = false; }
+        }
     }
-    return `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&format=image`;
-}
-
-        createNewDeck() {
-            const name = prompt("Deck Name:");
-            if (!name) return;
-            const newDeck = { id: Date.now(), name, cards: [], commanderId: null };
-            this.decks.push(newDeck);
-            this.activeDeck = newDeck;
-            this.save();
-        },
-
-        async searchCards() {
-            if (this.searchQuery.length < 3) return;
-            const res = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(this.searchQuery)}`);
-            const data = await res.json();
-            this.searchResults = data.data?.slice(0, 10) || [];
-        },
-
-        addCard(card, isCommander = false) {
-            if (!this.activeDeck) return;
-            const existing = this.activeDeck.cards.find(c => c.id === card.id);
-            if (existing) {
-                existing.qty++;
-            } else {
-                this.activeDeck.cards.push({ ...card, qty: 1 });
-            }
-            if (isCommander) this.activeDeck.commanderId = card.id;
-            this.searchResults = [];
-            this.searchQuery = '';
-            this.save();
-        },
-
-        updateQty(card, delta) {
-            card.qty += delta;
-            if (card.qty <= 0) this.removeCard(card);
-            this.save();
-        },
-
-        removeCard(card) {
-            this.activeDeck.cards = this.activeDeck.cards.filter(c => c.id !== card.id);
-            if (this.activeDeck.commanderId === card.id) this.activeDeck.commanderId = null;
-            this.save();
-        },
-
-        getCardCount(deck) {
-            return deck ? deck.cards.reduce((sum, c) => sum + c.qty, 0) : 0;
-        },
-
-        getDeckPrice() {
-            if (!this.activeDeck) return "0.00";
-            return this.activeDeck.cards.reduce((sum, c) => sum + (parseFloat(c.prices?.usd || 0) * c.qty), 0).toFixed(2);
-        },
-
-        isOwned(name) {
-            return this.collectionData.some(c => c.name.toLowerCase() === name.toLowerCase());
-        },
-
-        save() {
-            localStorage.setItem('decks', JSON.stringify(this.decks));
-        },
-
-        showPreview(e, url) {
-            this.hoverPreview = { visible: true, url, x: e.clientX, y: e.clientY };
-        },
-        hidePreview() { this.hoverPreview.visible = false; }
-    }
-}
-</script>
+    </script>
 </body>
 </html>
