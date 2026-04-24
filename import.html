@@ -7,11 +7,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         :root { --gunmetal: #111c1e; --dark: #1a2527; --cyan: #22d3ee; --steel: #8fa9b0; }
-        body { background: var(--gunmetal); color: #e8eef0; font-family: 'Rajdhani', sans-serif; }
+        body { background: var(--gunmetal); color: #e8eef0; font-family: 'Rajdhani', sans-serif; overflow: hidden; }
         .panel { background: var(--dark); border: 1px solid rgba(34, 211, 238, 0.1); }
         .brand-blue { color: rgb(34, 211, 238); }
         .btn-primary { border: 1px solid var(--cyan); color: var(--cyan); padding: 0.8rem; text-transform: uppercase; font-weight: 700; clip-path: polygon(0 0, 95% 0, 100% 25%, 100% 100%, 5% 100%, 0 75%); transition: 0.2s; cursor: pointer; }
         .btn-primary:hover { background: var(--cyan); color: black; }
+        textarea::placeholder { color: rgba(34, 211, 238, 0.2); }
     </style>
 </head>
 <body x-data="importApp()">
@@ -26,16 +27,31 @@
         </div>
     </header>
 
-    <main class="max-w-4xl mx-auto p-12">
-        <div class="panel p-8 flex flex-col gap-6">
-            <h2 class="text-2xl font-bold italic tracking-tighter brand-blue uppercase">Bulk Inventory Ingest</h2>
-            <p class="text-xs text-steel leading-relaxed">Paste your raw inventory list below. <br>Format: <span class="text-white">1 Card Name</span></p>
+    <main class="max-w-4xl mx-auto p-12 h-[calc(100vh-80px)]">
+        <div class="panel p-8 flex flex-col gap-6 h-full">
+            <div class="flex justify-between items-end">
+                <div>
+                    <h2 class="text-2xl font-bold italic tracking-tighter brand-blue uppercase leading-none">Bulk Inventory Ingest</h2>
+                    <p class="text-[10px] text-steel uppercase tracking-[0.2em] mt-2">Neural link established // Waiting for data strings</p>
+                </div>
+                <div class="text-[10px] font-mono text-cyan-400/50">
+                    STATUS: READY_TO_INGEST
+                </div>
+            </div>
             
-            <textarea x-model="rawInput" class="w-full h-80 bg-black/40 border border-white/10 p-4 font-mono text-xs focus:border-cyan-400 outline-none text-cyan-100" placeholder="1 Sol Ring&#10;4 Counterspell..."></textarea>
+            <textarea x-model="rawInput" 
+                      class="flex-1 bg-black/40 border border-white/10 p-6 font-mono text-xs focus:border-cyan-400 outline-none text-cyan-100 resize-none" 
+                      placeholder="1 Quill-Blade Laureate [SOS] 27&#10;1 Swamp (240) [THS] 240..."></textarea>
             
-            <div class="flex justify-between items-center">
-                <div x-show="processing" class="text-xs italic animate-pulse brand-blue">SYNCING WITH DATABASE...</div>
-                <button @click="processImport()" :disabled="processing" class="btn-primary px-12 ml-auto">Initialise Ingest</button>
+            <div class="flex justify-between items-center border-t border-white/5 pt-6">
+                <div class="flex flex-col">
+                    <span class="text-[9px] text-steel uppercase">Input Detection</span>
+                    <span class="text-xs font-mono brand-blue" x-text="rawInput.split('\n').filter(l => l.trim()).length + ' STREAMS DETECTED'"></span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div x-show="processing" class="text-[10px] italic animate-pulse brand-blue uppercase tracking-widest">Writing to Vault...</div>
+                    <button @click="processImport()" :disabled="processing || !rawInput.trim()" class="btn-primary px-12">Initialise Ingest</button>
+                </div>
             </div>
         </div>
     </main>
@@ -43,29 +59,70 @@
     <script>
         function importApp() {
             return {
-                rawInput: '', processing: false,
+                rawInput: '', 
+                processing: false,
+                
                 async processImport() {
+                    if (!confirm("CONFIRM NEURAL OVERWRITE? This will add the current input to your existing Vault records.")) return;
+
                     this.processing = true;
                     const lines = this.rawInput.split('\n');
                     let vault = JSON.parse(localStorage.getItem('forge_vault') || '[]');
 
-                    for(let line of lines) {
-                        const match = line.match(/^(\d+)\s+(.+)$/);
-                        if(match) {
-                            const qty = parseInt(match[1]);
-                            const name = match[2].trim();
-                            
-                            let existing = vault.find(c => c.name.toLowerCase() === name.toLowerCase());
-                            if(existing) {
+                    for (let line of lines) {
+                        if (!line.trim()) continue;
+
+                        // Enhanced Regex to capture Qty, Name, Set [bracketed], and Number
+                        // Matches: 1 Name [SET] 123 OR 1 Name (Extra) [SET] 123
+                        const match = line.match(/^(\d+)\s+([^\[\(]+)(?:\s*[\(\[].*?[\)\]])?\s*\[(.*?)\]\s*(\d+)?/);
+                        
+                        let qty, name, set, num;
+
+                        if (match) {
+                            qty = parseInt(match[1]);
+                            name = match[2].trim();
+                            set = match[3].trim().toLowerCase();
+                            num = match[4] ? match[4].trim() : null;
+                        } else {
+                            // Fallback for simple "1 Card Name" format
+                            const simpleMatch = line.match(/^(\d+)\s+(.+)$/);
+                            if (simpleMatch) {
+                                qty = parseInt(simpleMatch[1]);
+                                name = simpleMatch[2].trim();
+                            }
+                        }
+
+                        if (name) {
+                            // Check for exact match (Name + Set + Number) to consolidate quantities
+                            let existing = vault.find(c => 
+                                c.name.toLowerCase() === name.toLowerCase() && 
+                                (c.set === set) && 
+                                (c.collector_number === num)
+                            );
+
+                            if (existing) {
                                 existing.qty += qty;
                             } else {
-                                vault.push({ name, qty, type: 'Imported' });
+                                // Fetch type data silently for filters in collection.html
+                                try {
+                                    const res = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`);
+                                    const data = await res.json();
+                                    vault.push({ 
+                                        name, 
+                                        qty, 
+                                        set: set || (data.set || null), 
+                                        collector_number: num || (data.collector_number || null),
+                                        type: data.type_line || 'Unit'
+                                    });
+                                } catch(e) {
+                                    vault.push({ name, qty, set, collector_number: num, type: 'Unit' });
+                                }
                             }
                         }
                     }
 
                     localStorage.setItem('forge_vault', JSON.stringify(vault));
-                    alert("INGEST COMPLETE. DATA SYNCED TO VAULT.");
+                    alert("INGEST SUCCESSFUL. Vault has been synchronized.");
                     this.rawInput = '';
                     this.processing = false;
                 }
