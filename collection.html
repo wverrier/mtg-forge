@@ -21,7 +21,7 @@
             background-image: repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(77,217,240,0.02) 39px, rgba(77,217,240,0.02) 40px);
         }
         .panel { background: var(--gunmetal-dark); border: 1px solid rgba(77,217,240,0.1); }
-        .card-art { width: 100%; aspect-ratio: 2/2.8; object-fit: cover; border-radius: 8px; transition: 0.3s; }
+        .card-art { width: 100%; aspect-ratio: 2.5/3.5; object-fit: cover; border-radius: 8px; transition: 0.3s; display: block; }
         .card-art:hover { transform: scale(1.05); border: 1px solid var(--accent-cyan); box-shadow: 0 0 15px rgba(77,217,240,0.3); }
     </style>
 </head>
@@ -43,29 +43,27 @@
         </div>
 
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
-    <template x-for="card in cards" :key="card.name">
-        <div class="group" x-data="{ imgUrl: 'https://svgshare.com/i/zsY.svg' }" 
-             x-init="fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(card.name)}`)
-                    .then(res => res.json())
-                    .then(data => { imgUrl = data.image_uris?.normal || data.card_faces[0].image_uris.normal })
-                    .catch(() => imgUrl = 'https://svgshare.com/i/zsY.svg')">
-            
-            <img :src="imgUrl" 
-                 class="card-art bg-black/40" 
-                 loading="lazy" />
-            
-            <div class="mt-3 px-1">
-                <p class="text-xs font-bold truncate uppercase tracking-tight" x-text="card.name"></p>
-                <div class="flex justify-between items-center mt-1">
-                    <span class="text-[10px] text-cyan-400 font-mono" x-text="'QTY: ' + card.qty"></span>
+            <template x-for="card in cards" :key="card.name + card.set + card.number">
+                <div class="group panel p-2 rounded-xl border border-white/5">
+                    
+                    <img :src="getCardImage(card)" 
+                         class="card-art bg-black/40" 
+                         loading="lazy" />
+                    
+                    <div class="mt-3 px-1">
+                        <p class="text-xs font-bold truncate uppercase tracking-tight text-white" x-text="card.name"></p>
+                        <div class="flex justify-between items-center mt-1">
+                            <span class="text-[10px] text-cyan-400 font-mono" x-text="'QTY: ' + card.qty"></span>
+                            <span class="text-[9px] text-white/30 font-mono uppercase" x-text="card.set ? '[' + card.set + ']' : ''"></span>
+                        </div>
+                    </div>
+
                 </div>
-            </div>
+            </template>
         </div>
-    </template>
-</div>
 
         <div x-show="cards.length === 0" class="text-center py-40 panel">
-            <p class="text-steel uppercase tracking-widest">Vault is currently empty. Please import your CSV in the main terminal.</p>
+            <p class="text-steel uppercase tracking-widest">Vault is currently empty. Please import your list in the main terminal.</p>
             <a href="index.html" class="inline-block mt-4 text-cyan-400 border border-cyan-400 px-4 py-2 text-xs font-bold">RETURN TO TERMINAL</a>
         </div>
     </main>
@@ -73,8 +71,20 @@
     <script>
         function collectionApp() {
             return {
-                // This pulls the data saved from your index.html page
+                // Pull data from LocalStorage
                 cards: JSON.parse(localStorage.getItem('forge_vault') || '[]'),
+
+                // The helper function must be here too!
+                getCardImage(card) {
+                    if (!card) return 'https://svgshare.com/i/zsY.svg';
+
+                    if (card.set && card.number) {
+                        // Request specific printing
+                        return `https://api.scryfall.com/cards/${card.set.toLowerCase()}/${card.number}?format=image`;
+                    }
+                    // Fallback for names only
+                    return `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&format=image`;
+                }
             }
         }
     </script>
