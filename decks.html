@@ -15,11 +15,27 @@
         .category-header { font-family: 'Bebas Neue'; letter-spacing: 1px; color: var(--steel); border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 4px; padding-bottom: 2px; }
         .scroll-v { overflow-y: auto; height: calc(100vh - 280px); scrollbar-width: thin; scrollbar-color: var(--cyan) transparent; }
         .brand-blue { color: rgb(34, 211, 238); }
+        .modal-bg { background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); }
     </style>
 </head>
 <body x-data="deckApp()" x-init="init()">
     
     <img x-show="hoverPreview.visible && viewMode === 'list'" :src="hoverPreview.url" class="card-preview-float shadow-2xl" :style="`left:${hoverPreview.x+20}px; top:${hoverPreview.y-120}px`" />
+
+    <div x-show="showImportModal" class="fixed inset-0 z-[4000] modal-bg flex items-center justify-center p-6" x-transition>
+        <div class="panel w-full max-w-2xl p-6 flex flex-col gap-4">
+            <div class="flex justify-between items-center border-b border-white/10 pb-4">
+                <h3 class="text-xl font-bold italic brand-blue">DECK // UPLINK</h3>
+                <button @click="showImportModal = false" class="text-steel hover:text-white font-mono">X CLOSE</button>
+            </div>
+            <p class="text-[10px] text-steel uppercase tracking-widest">Paste your list below (1 Card Name)</p>
+            <textarea x-model="importRaw" class="w-full h-64 bg-black/50 border border-white/10 p-4 font-mono text-xs text-cyan-200 outline-none focus:border-cyan-400" placeholder="1 Dogmeat, Ever Loyal&#10;1 Swamp..."></textarea>
+            <div class="flex justify-end gap-4">
+                <div x-show="isImporting" class="text-xs italic animate-pulse brand-blue py-2">PROCESSING NEURAL LINK...</div>
+                <button @click="processImport()" :disabled="isImporting" class="btn-primary px-8">EXECUTE IMPORT</button>
+            </div>
+        </div>
+    </div>
 
     <header class="panel px-6 py-4 flex justify-between items-center border-b border-cyan-400/20">
         <div class="flex items-center gap-6">
@@ -61,11 +77,12 @@
                     <p class="text-[10px] text-steel uppercase tracking-[0.3em] mb-1">Combat Readiness</p>
                     <div class="flex gap-6 font-mono text-sm brand-blue font-bold">
                         <span>COUNT: <span x-text="countAllCards(activeDeck)"></span></span>
-                        <span>SYSTEM USAGE: <span class="text-white" x-text="getGlobalConflictCount()"></span> CONFLICTS</span>
+                        <span>CONFLICTS: <span class="text-white" x-text="getGlobalConflictCount()"></span></span>
                     </div>
                 </div>
-                <div class="z-10 flex flex-col items-end">
+                <div class="z-10 flex flex-col items-end gap-2">
                     <input type="text" x-model="searchQuery" @input.debounce.500ms="searchCards()" placeholder="QUERY DATABASE..." class="w-full max-w-[280px] bg-black/40 border border-cyan-400/20 p-2 text-xs font-mono focus:border-cyan-400 outline-none">
+                    <button @click="showImportModal = true" class="text-[9px] uppercase font-bold text-cyan-400/60 hover:text-cyan-400 transition underline underline-offset-4 tracking-tighter">Import List Uplink</button>
                 </div>
             </div>
 
@@ -91,7 +108,7 @@
                                 <template x-for="card in getCardsByCat(cat)" :key="card.id">
                                     <div class="flex justify-between items-center py-1 hover:bg-white/5 px-2 group rounded relative">
                                         <div class="flex items-center gap-2 truncate">
-                                            <span :class="getOwnershipStyle(card)" class="text-[10px] font-bold w-4" x-text="getOwnershipIcon(card)" :title="getConflictTooltip(card)"></span>
+                                            <span :class="getOwnershipStyle(card)" class="text-[10px] font-bold w-4" x-text="getOwnershipIcon(card)"></span>
                                             <span @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()" x-text="card.name" class="text-xs font-bold cursor-help truncate"></span>
                                             
                                             <div class="flex gap-2 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -147,50 +164,66 @@
                 decks: JSON.parse(localStorage.getItem('decks') || '[]'),
                 vault: JSON.parse(localStorage.getItem('forge_vault') || '[]'),
                 activeDeck: null, searchQuery: '', searchResults: [], viewMode: 'list',
+                showImportModal: false, importRaw: '', isImporting: false,
                 categories: ['Commander', 'Creature', 'Sorcery', 'Instant', 'Artifact', 'Enchantment', 'Planeswalker', 'Land'],
                 hoverPreview: { visible: false, url: '', x: 0, y: 0 },
                 init() { if(this.decks.length) this.activeDeck = this.decks[0]; },
                 
                 clean(n) {
+                    if(!n) return "";
                     return n.split('(')[0].split(' // ')[0].replace(/[^\w\s]/gi, '').toLowerCase().trim();
+                },
+
+                async processImport() {
+                    this.isImporting = true;
+                    const lines = this.importRaw.split('\n');
+                    for(let line of lines) {
+                        if(!line.trim()) continue;
+                        // Match quantity and card name (ignores brackets and numbers after name)
+                        const match = line.match(/^(\d+)\s+([^\[\(]+)/);
+                        if(match) {
+                            const qty = parseInt(match[1]);
+                            const name = match[2].trim();
+                            
+                            try {
+                                const res = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`);
+                                const card = await res.json();
+                                if(card.name) {
+                                    for(let i=0; i<qty; i++) {
+                                        this.addCard(card);
+                                    }
+                                }
+                            } catch(e) { console.error("Neural uplink failed for:", name); }
+                            // Tiny delay to avoid rate limiting
+                            await new Promise(r => setTimeout(r, 100));
+                        }
+                    }
+                    this.isImporting = false;
+                    this.showImportModal = false;
+                    this.importRaw = '';
                 },
 
                 getOwnershipIcon(card) {
                     const targetName = this.clean(card.name);
-                    const isBasicLand = ['forest', 'island', 'swamp', 'mountain', 'plains'].includes(targetName);
-                    
-                    // 1. Vault Total
+                    const isBasic = ['forest', 'island', 'swamp', 'mountain', 'plains'].includes(targetName);
                     const totalOwned = this.vault.reduce((sum, v) => this.clean(v.name) === targetName ? sum + v.qty : sum, 0);
                     if(totalOwned === 0) return '✕';
-
-                    // 2. Global Usage (Exclude current deck copy to see if others want it)
-                    const otherDecks = this.decks.filter(d => d.id !== this.activeDeck.id);
-                    const usedInOthers = otherDecks.reduce((sum, d) => {
-                        const inDeck = d.cards.find(c => this.clean(c.name) === targetName);
-                        return sum + (inDeck ? inDeck.qty : 0);
+                    const usedInOthers = this.decks.filter(d => d.id !== this.activeDeck.id).reduce((sum, d) => {
+                        const inD = d.cards.find(c => this.clean(c.name) === targetName);
+                        return sum + (inD ? inD.qty : 0);
                     }, 0);
-
-                    // Logic for Basics: Always check if owned, ignore conflict
-                    if(isBasicLand) return totalOwned > 0 ? '✓' : '✕';
-
-                    // Logic for Standard Cards:
-                    if(usedInOthers > 0 && (usedInOthers + card.qty) > totalOwned) return '⧉'; // Multi-deck conflict
-                    if(card.qty > totalOwned) return '!'; // Not enough copies
+                    if(isBasic) return totalOwned > 0 ? '✓' : '✕';
+                    if(usedInOthers > 0 && (usedInOthers + card.qty) > totalOwned) return '⧉';
+                    if(card.qty > totalOwned) return '!';
                     return '✓';
                 },
 
                 getOwnershipStyle(card) {
                     const icon = this.getOwnershipIcon(card);
                     if(icon === '✓') return 'text-green-400';
-                    if(icon === '⧉') return 'text-cyan-400'; // Conflict color
+                    if(icon === '⧉') return 'text-cyan-400';
                     if(icon === '!') return 'text-yellow-400';
                     return 'text-red-500';
-                },
-
-                getConflictTooltip(card) {
-                    const icon = this.getOwnershipIcon(card);
-                    if(icon === '⧉') return "Usage Conflict: This card is assigned to another deck.";
-                    return "";
                 },
 
                 getGlobalConflictCount() {
@@ -241,7 +274,6 @@
                     this.save();
                 },
                 countAllCards(deck) { return deck?.cards?.reduce((s, c) => s + c.qty, 0) || 0; },
-                getDeckPrice() { return this.activeDeck?.cards?.reduce((s, c) => s + (parseFloat(c.prices?.usd || 0) * c.qty), 0).toFixed(2) || '0.00'; },
                 save() { localStorage.setItem('decks', JSON.stringify(this.decks)); },
                 showPreview(e, url) { this.hoverPreview = { visible: true, url, x: e.clientX, y: e.clientY }; },
                 hidePreview() { this.hoverPreview.visible = false; },
