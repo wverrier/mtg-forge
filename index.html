@@ -3,166 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FORGE — Vault Inventory</title>
+    <title>FORGE // MAIN TERMINAL</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --gunmetal-deeper: #111c1e;
-            --gunmetal-dark: #1a2527;
-            --accent-cyan: #4dd9f0;
-            --steel: #8fa9b0;
-        }
+        :root { --gunmetal: #111c1e; --dark: #1a2527; --cyan: #4dd9f0; }
         body {
-            background: var(--gunmetal-deeper);
-            color: #e8eef0;
-            font-family: 'Rajdhani', sans-serif;
+            background: var(--gunmetal); color: #e8eef0; font-family: 'Rajdhani', sans-serif;
+            height: 100vh; display: flex; align-items: center; justify-content: center;
             background-image: repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(77,217,240,0.02) 39px, rgba(77,217,240,0.02) 40px);
         }
-        .panel { background: var(--gunmetal-dark); border: 1px solid rgba(77,217,240,0.1); }
-        .card-row { transition: 0.1s; border-left: 2px solid transparent; }
-        .card-row:hover { background: rgba(77,217,240,0.08); border-left: 2px solid var(--accent-cyan); color: var(--accent-cyan); }
-        
-        .card-preview-float { 
-            position: fixed; 
-            z-index: 3000; 
-            width: 250px; 
-            pointer-events: none; 
-            border-radius: 12px; 
-            box-shadow: 0 15px 50px rgba(0,0,0,0.8);
-            border: 1px solid rgba(77,217,240,0.3);
+        .menu-card {
+            background: var(--dark); border: 1px solid rgba(77,217,240,0.1);
+            transition: 0.3s; position: relative; cursor: pointer;
         }
-
-        .search-input {
-            background: rgba(0,0,0,0.3);
-            border: 1px solid rgba(77,217,240,0.2);
-            color: var(--accent-cyan);
-            font-family: 'Share Tech Mono', monospace;
-        }
-        .search-input:focus {
-            border-color: var(--accent-cyan);
-            outline: none;
-            box-shadow: 0 0 10px rgba(77,217,240,0.2);
+        .menu-card:hover {
+            border-color: var(--cyan); background: rgba(77,217,240,0.05);
+            transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
     </style>
 </head>
-<body x-data="collectionApp()">
-
-    <img x-show="hoverPreview.visible" 
-         :src="hoverPreview.url" 
-         class="card-preview-float" 
-         :style="`left:${hoverPreview.x + 20}px; top:${hoverPreview.y - 120}px`" />
-
-  <header class="panel border-b border-cyan-400/20 px-6 py-4 flex justify-between items-center sticky top-0 z-50 shadow-2xl">
-    <div class="flex items-center gap-8">
-        <div>
-            <h1 class="text-3xl font-bold tracking-tighter text-cyan-400" style="font-family: 'Bebas Neue'">FORGE</h1>
-            <p class="text-[10px] font-mono text-steel opacity-70 tracking-widest uppercase">Deck Construction Terminal</p>
-        </div>
-        
-        <nav class="flex gap-1 ml-4 bg-black/20 p-1 rounded border border-white/5">
-            <button @click="activeTab='decks'" 
-                :class="activeTab==='decks' ? 'bg-cyan-400 text-black' : 'text-steel hover:text-white'"
-                class="px-4 py-1.5 text-xs font-bold uppercase tracking-tighter transition-all duration-200">
-                Decks
-            </button>
-            
-            <a href="collection.html" 
-                class="px-4 py-1.5 text-xs text-steel hover:text-white font-bold uppercase tracking-tighter transition-all duration-200 flex items-center">
-                Vault
+<body>
+    <div class="max-w-5xl w-full px-6 text-center">
+        <h1 class="text-7xl font-bold tracking-tighter text-cyan-400 mb-16" style="font-family: 'Bebas Neue'">FORGE SYSTEM v1.0</h1>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <a href="decks.html" class="menu-card p-10 group">
+                <h2 class="text-4xl font-bold uppercase italic mb-2" style="font-family: 'Bebas Neue'">Decks</h2>
+                <p class="text-slate-400 text-sm">Construct and optimize lists.</p>
             </a>
-            
-            <button @click="activeTab='import'" 
-                :class="activeTab==='import' ? 'bg-cyan-400 text-black' : 'text-steel hover:text-white'"
-                class="px-4 py-1.5 text-xs font-bold uppercase tracking-tighter transition-all duration-200">
-                Import
-            </button>
-        </nav>
+            <a href="collection.html" class="menu-card p-10 group">
+                <h2 class="text-4xl font-bold uppercase italic mb-2" style="font-family: 'Bebas Neue'">Vault</h2>
+                <p class="text-slate-400 text-sm">Manage owned inventory.</p>
+            </a>
+            <a href="import.html" class="menu-card p-10 group">
+                <h2 class="text-4xl font-bold uppercase italic mb-2" style="font-family: 'Bebas Neue'">Uplink</h2>
+                <p class="text-slate-400 text-sm">Import card data lists.</p>
+            </a>
+        </div>
     </div>
-
-    <div class="hidden md:block">
-        <span class="text-[10px] font-mono text-cyan-400/50 uppercase">System Status: Online</span>
-    </div>
-</header>
-    <main class="p-8">
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6">
-            <div>
-                <h2 class="text-5xl font-bold uppercase italic">Owned Inventory</h2>
-                <p class="text-cyan-400 font-mono text-sm mt-2" x-text="cards.length + ' UNIQUE ENTRIES DETECTED'"></p>
-            </div>
-
-            <div class="w-full md:w-80">
-                <p class="text-[10px] text-steel uppercase font-bold mb-1 tracking-widest">Filter Manifest</p>
-                <input type="text" 
-                       x-model="searchFilter" 
-                       placeholder="TYPE TO SEARCH..." 
-                       class="search-input w-full px-4 py-2 text-sm uppercase tracking-widest rounded-sm">
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-1">
-            <template x-for="card in filteredCards" :key="card.name + card.set + card.number">
-                <div class="card-row flex justify-between items-center px-3 py-1.5 cursor-crosshair group"
-                     @mouseenter="showPreview($event, card)"
-                     @mouseleave="hidePreview()">
-                    
-                    <div class="flex items-center gap-3 overflow-hidden">
-                        <span class="text-cyan-400 font-mono text-xs w-6" x-text="card.qty + 'x'"></span>
-                        <span class="font-bold truncate text-sm uppercase tracking-tight group-hover:translate-x-1 transition-transform" x-text="card.name"></span>
-                    </div>
-                    
-                    <div class="flex items-center gap-2">
-                        <span class="text-[9px] font-mono text-steel opacity-40 uppercase" x-text="card.set ? '[' + card.set + ']' : ''"></span>
-                    </div>
-                </div>
-            </template>
-        </div>
-
-        <div x-show="filteredCards.length === 0" class="text-center py-40 panel rounded-xl">
-            <p class="text-steel uppercase tracking-widest" x-text="cards.length === 0 ? 'Vault is empty.' : 'No signature match found.'"></p>
-            <button x-show="cards.length > 0" @click="searchFilter = ''" class="mt-4 text-cyan-400 text-xs font-bold underline">CLEAR FILTER</button>
-        </div>
-    </main>
-
-    <script>
-        function collectionApp() {
-            return {
-                cards: JSON.parse(localStorage.getItem('forge_vault') || '[]'),
-                searchFilter: '',
-                hoverPreview: { visible: false, url: '', x: 0, y: 0 },
-
-                // This computed property filters the list in real-time
-                get filteredCards() {
-                    if (!this.searchFilter) return this.cards;
-                    const query = this.searchFilter.toLowerCase();
-                    return this.cards.filter(c => 
-                        c.name.toLowerCase().includes(query) || 
-                        (c.set && c.set.toLowerCase().includes(query))
-                    );
-                },
-
-                showPreview(e, card) {
-                    let url = '';
-                    if (card.set && card.number) {
-                        url = `https://api.scryfall.com/cards/${card.set.toLowerCase()}/${card.number}?format=image&version=normal`;
-                    } else {
-                        url = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&format=image&version=normal`;
-                    }
-                    
-                    this.hoverPreview = { 
-                        visible: true, 
-                        url: url, 
-                        x: e.clientX, 
-                        y: e.clientY 
-                    };
-                },
-
-                hidePreview() { 
-                    this.hoverPreview.visible = false; 
-                }
-            }
-        }
-    </script>
 </body>
 </html>
