@@ -21,7 +21,7 @@
             background-image: repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(77,217,240,0.02) 39px, rgba(77,217,240,0.02) 40px);
         }
         .panel { background: var(--gunmetal-dark); border: 1px solid rgba(77,217,240,0.1); }
-        .card-art { width: 100%; aspect-ratio: 2.5/3.5; object-fit: cover; border-radius: 8px; transition: 0.3s; display: block; }
+        .card-art { width: 100%; aspect-ratio: 2.5/3.5; object-fit: cover; border-radius: 8px; transition: 0.3s; display: block;content-visibility: auto; background: #1a2527;}
         .card-art:hover { transform: scale(1.05); border: 1px solid var(--accent-cyan); box-shadow: 0 0 15px rgba(77,217,240,0.3); }
     </style>
 </head>
@@ -74,17 +74,15 @@
                 // Pull data from LocalStorage
                 cards: JSON.parse(localStorage.getItem('forge_vault') || '[]'),
 
-                // The helper function must be here too!
-                getCardImage(card) {
-                    if (!card) return 'https://svgshare.com/i/zsY.svg';
+              getCardImage(card) {
+    if (!card) return 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
-                    if (card.set && card.number) {
-                        // Request specific printing
-                        return `https://api.scryfall.com/cards/${card.set.toLowerCase()}/${card.number}?format=image`;
-                    }
-                    // Fallback for names only
-                    return `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&format=image`;
-                }
+    // Adding &version=small tells Scryfall to send the tiny, fast version
+    if (card.set && card.number) {
+        return `https://api.scryfall.com/cards/${card.set.toLowerCase()}/${card.number}?format=image&version=small`;
+    }
+    return `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&format=image&version=small`;
+}
             }
         }
     </script>
