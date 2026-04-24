@@ -1,75 +1,140 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8"><title>FORGE // DECKS</title>
+    <meta charset="UTF-8"><title>FORGE // TACTICAL BUILDER</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
         :root { --gunmetal: #111c1e; --dark: #1a2527; --cyan: #4dd9f0; --steel: #8fa9b0; }
-        body { background: var(--gunmetal); color: #e8eef0; font-family: 'Rajdhani', sans-serif; min-height: 100vh; }
+        body { background: var(--gunmetal); color: #e8eef0; font-family: 'Rajdhani', sans-serif; overflow: hidden; }
         .panel { background: var(--dark); border: 1px solid rgba(77,217,240,0.1); }
-        .btn-primary { border: 1px solid var(--cyan); color: var(--cyan); padding: 0.5rem; text-transform: uppercase; font-weight: 700; clip-path: polygon(0 0, 92% 0, 100% 25%, 100% 100%, 8% 100%, 0 75%); transition: 0.2s; }
+        .btn-primary { border: 1px solid var(--cyan); color: var(--cyan); padding: 0.5rem; text-transform: uppercase; font-weight: 700; clip-path: polygon(0 0, 92% 0, 100% 25%, 100% 100%, 8% 100%, 0 75%); transition: 0.2s; cursor: pointer; }
         .btn-primary:hover { background: var(--cyan); color: black; }
-        .card-preview-float { position: fixed; z-index: 3000; width: 220px; pointer-events: none; border-radius: 10px; }
-        .scroll-area { overflow-y: auto; height: calc(100vh - 200px); }
+        .card-preview-float { position: fixed; z-index: 3000; width: 240px; pointer-events: none; border-radius: 12px; border: 1px solid rgba(77,217,240,0.3); }
+        .category-header { font-family: 'Bebas Neue'; letter-spacing: 1px; color: var(--steel); border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 4px; padding-bottom: 2px; }
+        .scroll-v { overflow-y: auto; height: calc(100vh - 280px); scrollbar-width: thin; scrollbar-color: var(--cyan) transparent; }
     </style>
 </head>
 <body x-data="deckApp()" x-init="init()">
-    <img x-show="hoverPreview.visible" :src="hoverPreview.url" class="card-preview-float shadow-2xl" :style="`left:${hoverPreview.x+20}px; top:${hoverPreview.y-100}px`" />
+    
+    <img x-show="hoverPreview.visible && viewMode === 'list'" :src="hoverPreview.url" class="card-preview-float shadow-2xl" :style="`left:${hoverPreview.x+20}px; top:${hoverPreview.y-120}px`" />
 
-    <header class="panel px-6 py-4 flex justify-between items-center sticky top-0 z-50">
-        <a href="index.html" class="text-2xl font-bold text-cyan-400" style="font-family: 'Bebas Neue'">FORGE // DECKS</a>
-        <nav class="flex gap-4 text-[10px] font-bold uppercase tracking-widest">
-            <a href="collection.html" class="hover:text-cyan-400">Vault</a>
-            <a href="import.html" class="hover:text-cyan-400">Uplink</a>
-        </nav>
+    <header class="panel px-6 py-4 flex justify-between items-center border-b border-cyan-400/20 shadow-xl">
+        <div class="flex items-center gap-6">
+            <a href="index.html" class="text-3xl font-bold text-cyan-400" style="font-family: 'Bebas Neue'">FORGE // DECKS</a>
+            <nav class="flex gap-4 text-[10px] font-bold uppercase tracking-widest text-steel">
+                <a href="collection.html" class="hover:text-cyan-400 transition">Vault</a>
+                <a href="import.html" class="hover:text-cyan-400 transition">Uplink</a>
+            </nav>
+        </div>
+        
+        <div class="flex gap-2">
+            <button @click="viewMode = 'list'" :class="viewMode === 'list' ? 'bg-cyan-400 text-black' : 'bg-white/5'" class="px-3 py-1 text-[10px] font-bold uppercase">List</button>
+            <button @click="viewMode = 'visual'" :class="viewMode === 'visual' ? 'bg-cyan-400 text-black' : 'bg-white/5'" class="px-3 py-1 text-[10px] font-bold uppercase">Visual</button>
+        </div>
     </header>
 
-    <main class="p-6 grid grid-cols-12 gap-6">
-        <div class="col-span-3 panel p-4 h-fit">
-            <button @click="createNewDeck()" class="w-full btn-primary mb-4">+ New Deck</button>
+    <main class="grid grid-cols-12 gap-4 p-4 h-[calc(100vh-80px)]">
+        
+        <div class="col-span-2 panel p-4 overflow-y-auto">
+            <button @click="createNewDeck()" class="w-full btn-primary text-xs mb-6">+ Initialise List</button>
             <template x-for="deck in decks" :key="deck.id">
-                <div @click="activeDeck = deck" :class="activeDeck?.id === deck.id ? 'border-cyan-400 bg-white/5' : 'border-transparent'" class="p-3 border-l-2 cursor-pointer mb-1 transition">
-                    <div x-text="deck.name" class="font-bold"></div>
-                    <div class="text-[10px] text-cyan-400/50" x-text="getCardCount(deck) + ' CARDS'"></div>
+                <div @click="activeDeck = deck" :class="activeDeck?.id === deck.id ? 'border-cyan-400 bg-cyan-400/5' : 'border-transparent opacity-60'" class="p-3 border-l-2 cursor-pointer mb-2 transition hover:opacity-100">
+                    <div x-text="deck.name" class="font-bold text-sm uppercase truncate"></div>
+                    <div class="text-[9px] font-mono text-cyan-400" x-text="countAllCards(deck) + ' UNITS'"></p></div>
                 </div>
             </template>
         </div>
 
-        <div class="col-span-9" x-show="activeDeck">
-            <div class="panel p-6 mb-6 flex justify-between items-center">
-                <h2 class="text-4xl font-bold uppercase italic" x-text="activeDeck.name"></h2>
-                <div class="text-right">
-                    <p class="text-xs text-slate-500 uppercase">Total Value</p>
-                    <p class="text-2xl font-bold text-cyan-400 font-mono">$<span x-text="getDeckPrice()"></span></p>
+        <div class="col-span-10 flex flex-col gap-4" x-show="activeDeck">
+            
+            <div class="panel p-6 flex justify-between items-center relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-2 opacity-10 font-mono text-[100px] leading-none select-none" x-text="countAllCards(activeDeck)"></div>
+                <div>
+                    <h2 class="text-5xl font-bold uppercase italic italic" x-text="activeDeck.name"></h2>
+                    <div class="flex gap-4 mt-2 font-mono text-xs text-cyan-400">
+                        <span>COUNT: <span x-text="countAllCards(activeDeck)"></span> / 100</span>
+                        <span>VALUE: $<span x-text="getDeckPrice()"></span></span>
+                    </div>
+                </div>
+                <div class="z-10">
+                    <input type="text" x-model="searchQuery" @input.debounce.500ms="searchCards()" placeholder="ADD CARD TO LIST..." class="w-80 bg-black/40 border border-cyan-400/20 p-3 text-sm font-mono focus:border-cyan-400 outline-none">
                 </div>
             </div>
 
-            <input type="text" x-model="searchQuery" @input.debounce.500ms="searchCards()" placeholder="Search Scryfall..." class="w-full bg-black/40 border border-white/10 p-4 rounded font-mono focus:border-cyan-400 outline-none mb-6">
-            
-            <div x-show="searchResults.length" class="panel absolute w-1/2 z-50 max-h-60 overflow-y-auto shadow-2xl">
+            <div x-show="searchResults.length" class="absolute right-8 top-44 w-80 panel z-[100] shadow-2xl max-h-96 overflow-y-auto">
                 <template x-for="card in searchResults" :key="card.id">
-                    <div class="p-3 hover:bg-cyan-400/10 flex justify-between items-center border-b border-white/5">
-                        <span x-text="card.name" class="font-bold" @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()"></span>
-                        <button @click="addCard(card)" class="text-[10px] bg-cyan-400 text-black px-3 py-1 font-bold">+ ADD</button>
+                    <div class="p-2 hover:bg-cyan-400/10 border-b border-white/5 flex justify-between items-center group">
+                        <span x-text="card.name" class="text-xs font-bold truncate cursor-help" @mouseenter="showPreview($event, card.image_uris?.normal)"></span>
+                        <div class="flex gap-1">
+                            <button @click="addCard(card, 'main')" class="bg-cyan-400 text-black text-[9px] font-bold px-2 py-1">MAIN</button>
+                            <button @click="addCard(card, 'side')" class="bg-steel text-black text-[9px] font-bold px-2 py-1">SIDE</button>
+                        </div>
                     </div>
                 </template>
             </div>
 
-            <div class="scroll-area grid grid-cols-2 gap-4">
-                <template x-for="card in activeDeck.cards" :key="card.id">
-                    <div class="panel p-3 flex justify-between items-center">
-                        <div>
-                            <p x-text="card.name" class="font-bold" @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()"></p>
-                            <p class="text-[10px] text-slate-500" x-text="card.type_line"></p>
+            <div class="grid grid-cols-12 gap-4 flex-1 overflow-hidden">
+                <div class="col-span-9 scroll-v pr-2">
+                    <template x-for="cat in categories" :key="cat">
+                        <div x-show="getCardsByCat(cat).length > 0" class="mb-6">
+                            <h3 class="category-header text-sm flex justify-between">
+                                <span x-text="cat"></span>
+                                <span class="opacity-40" x-text="getCardsByCat(cat).reduce((a, b) => a + b.qty, 0)"></span>
+                            </h3>
+                            
+                            <div x-show="viewMode === 'list'" class="grid grid-cols-2 gap-x-6">
+                                <template x-for="card in getCardsByCat(cat)" :key="card.id">
+                                    <div class="flex justify-between items-center py-1 hover:bg-white/5 px-2 group rounded">
+                                        <div class="flex items-center gap-2 truncate">
+                                            <span :class="getOwnershipStyle(card)" class="text-[10px] font-bold w-4" x-text="getOwnershipIcon(card)"></span>
+                                            <span @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()" x-text="card.name" class="text-xs font-bold cursor-help truncate"></span>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-[9px] font-mono opacity-40 italic" x-text="'$' + (card.prices?.usd || '0.00')"></span>
+                                            <div class="flex items-center bg-black/20 rounded">
+                                                <button @click="adjustQty(card, -1)" class="px-2 text-steel hover:text-cyan-400">-</button>
+                                                <span class="text-[10px] font-mono w-4 text-center" x-text="card.qty"></span>
+                                                <button @click="adjustQty(card, 1)" class="px-2 text-steel hover:text-cyan-400">+</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <div x-show="viewMode === 'visual'" class="grid grid-cols-4 md:grid-cols-6 gap-2">
+                                <template x-for="card in getCardsByCat(cat)" :key="card.id">
+                                    <div class="relative group cursor-pointer" @click="adjustQty(card, 1)" @contextmenu.prevent="adjustQty(card, -1)">
+                                        <img :src="card.image_uris?.normal" class="rounded-lg border-2 border-transparent hover:border-cyan-400 transition shadow-lg">
+                                        <div class="absolute top-1 right-1 bg-black/80 text-cyan-400 text-[10px] font-bold px-1.5 py-0.5 rounded border border-cyan-400/30" x-text="'x'+card.qty"></div>
+                                        <div :class="getOwnershipStyle(card)" class="absolute bottom-1 right-1 px-1.5 py-0.5 text-[10px] rounded bg-black/80 shadow-md" x-text="getOwnershipIcon(card)"></div>
+                                    </div>
+                                </template>
+                            </div>
                         </div>
-                        <div class="flex items-center gap-4">
-                            <span class="font-mono text-cyan-400" x-text="'x' + card.qty"></span>
-                            <button @click="removeCard(card)" class="text-slate-500 hover:text-white">✕</button>
-                        </div>
+                    </template>
+                </div>
+
+                <div class="col-span-3 flex flex-col gap-4 overflow-hidden">
+                    <div class="panel p-4 flex-1 scroll-v">
+                        <h3 class="category-header text-xs">Tactical Sideboard</h3>
+                        <template x-for="card in activeDeck.sideboard" :key="card.id">
+                            <div class="flex justify-between py-1 text-[11px] group">
+                                <span x-text="card.name" class="truncate font-bold opacity-80 group-hover:opacity-100"></span>
+                                <div class="flex gap-2">
+                                    <span x-text="'x'+card.qty" class="text-cyan-400"></span>
+                                    <button @click="removeSide(card)" class="text-red-500 opacity-0 group-hover:opacity-100">✕</button>
+                                </div>
+                            </div>
+                        </template>
                     </div>
-                </template>
+                    
+                    <div class="panel p-4 h-48 scroll-v">
+                        <h3 class="category-header text-xs">Required Tokens</h3>
+                        <p class="text-[10px] text-steel italic mt-2 opacity-50">Feature Pending: Token Auto-Detection</p>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
@@ -78,37 +143,72 @@
         function deckApp() {
             return {
                 decks: JSON.parse(localStorage.getItem('decks') || '[]'),
-                activeDeck: null, searchQuery: '', searchResults: [],
+                vault: JSON.parse(localStorage.getItem('forge_vault') || '[]'),
+                activeDeck: null, searchQuery: '', searchResults: [], viewMode: 'list',
+                categories: ['Commander', 'Creature', 'Sorcery', 'Instant', 'Artifact', 'Enchantment', 'Planeswalker', 'Land'],
                 hoverPreview: { visible: false, url: '', x: 0, y: 0 },
+
                 init() { if(this.decks.length) this.activeDeck = this.decks[0]; },
+
                 async searchCards() {
                     if(this.searchQuery.length < 3) return;
                     const res = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(this.searchQuery)}`);
                     const data = await res.json();
                     this.searchResults = data.data?.slice(0, 10) || [];
                 },
-                addCard(card) {
-                    let existing = this.activeDeck.cards.find(c => c.id === card.id);
-                    existing ? existing.qty++ : this.activeDeck.cards.push({...card, qty: 1});
+
+                addCard(card, target) {
+                    const list = target === 'main' ? this.activeDeck.cards : this.activeDeck.sideboard;
+                    let existing = list.find(c => c.name === card.name);
+                    existing ? existing.qty++ : list.push({...card, qty: 1});
                     this.save(); this.searchResults = []; this.searchQuery = '';
                 },
-                removeCard(card) {
-                    this.activeDeck.cards = this.activeDeck.cards.filter(c => c.id !== card.id);
+
+                adjustQty(card, val) {
+                    card.qty += val;
+                    if(card.qty <= 0) {
+                        this.activeDeck.cards = this.activeDeck.cards.filter(c => c.id !== card.id);
+                    }
                     this.save();
                 },
-                getCardCount(deck) { return deck.cards.reduce((s, c) => s + c.qty, 0); },
+
+                getCardsByCat(cat) {
+                    if(!this.activeDeck) return [];
+                    return this.activeDeck.cards.filter(c => {
+                        if(cat === 'Commander') return c.type_line.includes('Legendary') && c.type_line.includes('Creature');
+                        return c.type_line.includes(cat);
+                    });
+                },
+
+                getOwnershipIcon(card) {
+                    const vMatch = this.vault.find(v => v.name.toLowerCase() === card.name.toLowerCase());
+                    if(!vMatch) return '✕';
+                    return vMatch.qty >= card.qty ? '✓' : '!';
+                },
+
+                getOwnershipStyle(card) {
+                    const icon = this.getOwnershipIcon(card);
+                    if(icon === '✓') return 'text-green-400';
+                    if(icon === '!') return 'text-yellow-400';
+                    return 'text-red-500';
+                },
+
+                countAllCards(deck) { return deck.cards?.reduce((s, c) => s + c.qty, 0) || 0; },
                 getDeckPrice() {
                     return this.activeDeck.cards.reduce((s, c) => s + (parseFloat(c.prices?.usd || 0) * c.qty), 0).toFixed(2);
                 },
+
                 save() { localStorage.setItem('decks', JSON.stringify(this.decks)); },
-                createNewDeck() {
-                    const name = prompt("Deck Name:");
-                    if(!name) return;
-                    const d = { id: Date.now(), name, cards: [] };
-                    this.decks.push(d); this.activeDeck = d; this.save();
-                },
+                
                 showPreview(e, url) { this.hoverPreview = { visible: true, url, x: e.clientX, y: e.clientY }; },
-                hidePreview() { this.hoverPreview.visible = false; }
+                hidePreview() { this.hoverPreview.visible = false; },
+
+                createNewDeck() {
+                    const name = prompt("Enter Terminal Designation:");
+                    if(!name) return;
+                    const d = { id: Date.now(), name, cards: [], sideboard: [] };
+                    this.decks.push(d); this.activeDeck = d; this.save();
+                }
             }
         }
     </script>
