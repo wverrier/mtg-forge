@@ -21,49 +21,61 @@
             background-image: repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(77,217,240,0.02) 39px, rgba(77,217,240,0.02) 40px);
         }
         .panel { background: var(--gunmetal-dark); border: 1px solid rgba(77,217,240,0.1); }
-        .card-art { width: 100%; aspect-ratio: 2.5/3.5; object-fit: cover; border-radius: 8px; transition: 0.3s; display: block;content-visibility: auto; background: #1a2527;}
-        .card-art:hover { transform: scale(1.05); border: 1px solid var(--accent-cyan); box-shadow: 0 0 15px rgba(77,217,240,0.3); }
+        .card-row { transition: 0.2s; border-left: 2px solid transparent; }
+        .card-row:hover { background: rgba(77,217,240,0.05); border-left: 2px solid var(--accent-cyan); color: var(--accent-cyan); }
+        
+        /* The floating preview logic */
+        .card-preview-float { 
+            position: fixed; 
+            z-index: 3000; 
+            width: 250px; 
+            pointer-events: none; 
+            border-radius: 12px; 
+            box-shadow: 0 15px 50px rgba(0,0,0,0.8);
+            border: 1px solid rgba(77,217,240,0.3);
+        }
     </style>
 </head>
 <body x-data="collectionApp()">
 
-    <header class="panel border-b px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+    <img x-show="hoverPreview.visible" 
+         :src="hoverPreview.url" 
+         class="card-preview-float" 
+         :style="`left:${hoverPreview.x + 20}px; top:${hoverPreview.y - 120}px`" />
+
+    <header class="panel border-b px-6 py-4 flex justify-between items-center sticky top-0 z-50 shadow-xl">
         <h1 class="text-3xl font-bold tracking-tighter text-cyan-400" style="font-family: 'Bebas Neue'">FORGE // VAULT</h1>
         <nav class="flex gap-6">
-            <a href="index.html" class="text-xs font-bold uppercase tracking-widest hover:text-cyan-400">← Back to Deck Builder</a>
+            <a href="index.html" class="text-xs font-bold uppercase tracking-widest hover:text-cyan-400">← Back to Terminal</a>
         </nav>
     </header>
 
     <main class="p-8">
-        <div class="flex justify-between items-end mb-10">
-            <div>
-                <h2 class="text-5xl font-bold uppercase italic">Owned Inventory</h2>
-                <p class="text-cyan-400 font-mono text-sm mt-2" x-text="cards.length + ' UNIQUE ENTRIES DETECTED'"></p>
-            </div>
+        <div class="mb-10">
+            <h2 class="text-5xl font-bold uppercase italic">Owned Inventory</h2>
+            <p class="text-cyan-400 font-mono text-sm mt-2" x-text="cards.length + ' UNIQUE ENTRIES DETECTED'"></p>
         </div>
 
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-1">
             <template x-for="card in cards" :key="card.name + card.set + card.number">
-                <div class="group panel p-2 rounded-xl border border-white/5">
+                <div class="card-row flex justify-between items-center px-3 py-2 cursor-crosshair group"
+                     @mouseenter="showPreview($event, card)"
+                     @mouseleave="hidePreview()">
                     
-                    <img :src="getCardImage(card)" 
-                         class="card-art bg-black/40" 
-                         loading="lazy" />
-                    
-                    <div class="mt-3 px-1">
-                        <p class="text-xs font-bold truncate uppercase tracking-tight text-white" x-text="card.name"></p>
-                        <div class="flex justify-between items-center mt-1">
-                            <span class="text-[10px] text-cyan-400 font-mono" x-text="'QTY: ' + card.qty"></span>
-                            <span class="text-[9px] text-white/30 font-mono uppercase" x-text="card.set ? '[' + card.set + ']' : ''"></span>
-                        </div>
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <span class="text-cyan-400 font-mono text-xs w-6" x-text="card.qty + 'x'"></span>
+                        <span class="font-bold truncate text-sm uppercase tracking-tight group-hover:translate-x-1 transition-transform" x-text="card.name"></span>
                     </div>
-
+                    
+                    <div class="flex items-center gap-2">
+                        <span class="text-[9px] font-mono text-steel opacity-50 uppercase" x-text="card.set ? '[' + card.set + ']' : ''"></span>
+                    </div>
                 </div>
             </template>
         </div>
 
-        <div x-show="cards.length === 0" class="text-center py-40 panel">
-            <p class="text-steel uppercase tracking-widest">Vault is currently empty. Please import your list in the main terminal.</p>
+        <div x-show="cards.length === 0" class="text-center py-40 panel rounded-xl">
+            <p class="text-steel uppercase tracking-widest">Vault is currently offline. Please import data.</p>
             <a href="index.html" class="inline-block mt-4 text-cyan-400 border border-cyan-400 px-4 py-2 text-xs font-bold">RETURN TO TERMINAL</a>
         </div>
     </main>
@@ -71,18 +83,28 @@
     <script>
         function collectionApp() {
             return {
-                // Pull data from LocalStorage
                 cards: JSON.parse(localStorage.getItem('forge_vault') || '[]'),
+                hoverPreview: { visible: false, url: '', x: 0, y: 0 },
 
-              getCardImage(card) {
-    if (!card) return 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+                showPreview(e, card) {
+                    let url = '';
+                    if (card.set && card.number) {
+                        url = `https://api.scryfall.com/cards/${card.set.toLowerCase()}/${card.number}?format=image&version=normal`;
+                    } else {
+                        url = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&format=image&version=normal`;
+                    }
+                    
+                    this.hoverPreview = { 
+                        visible: true, 
+                        url: url, 
+                        x: e.clientX, 
+                        y: e.clientY 
+                    };
+                },
 
-    // Adding &version=small tells Scryfall to send the tiny, fast version
-    if (card.set && card.number) {
-        return `https://api.scryfall.com/cards/${card.set.toLowerCase()}/${card.number}?format=image&version=small`;
-    }
-    return `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&format=image&version=small`;
-}
+                hidePreview() { 
+                    this.hoverPreview.visible = false; 
+                }
             }
         }
     </script>
