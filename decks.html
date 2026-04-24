@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><title>FORGE // DECKS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --gunmetal: #111c1e; --dark: #1a2527; --cyan: #4dd9f0; --steel: #8fa9b0; }
+        body { background: var(--gunmetal); color: #e8eef0; font-family: 'Rajdhani', sans-serif; min-height: 100vh; }
+        .panel { background: var(--dark); border: 1px solid rgba(77,217,240,0.1); }
+        .btn-primary { border: 1px solid var(--cyan); color: var(--cyan); padding: 0.5rem; text-transform: uppercase; font-weight: 700; clip-path: polygon(0 0, 92% 0, 100% 25%, 100% 100%, 8% 100%, 0 75%); transition: 0.2s; }
+        .btn-primary:hover { background: var(--cyan); color: black; }
+        .card-preview-float { position: fixed; z-index: 3000; width: 220px; pointer-events: none; border-radius: 10px; }
+        .scroll-area { overflow-y: auto; height: calc(100vh - 200px); }
+    </style>
+</head>
+<body x-data="deckApp()" x-init="init()">
+    <img x-show="hoverPreview.visible" :src="hoverPreview.url" class="card-preview-float shadow-2xl" :style="`left:${hoverPreview.x+20}px; top:${hoverPreview.y-100}px`" />
+
+    <header class="panel px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+        <a href="index.html" class="text-2xl font-bold text-cyan-400" style="font-family: 'Bebas Neue'">FORGE // DECKS</a>
+        <nav class="flex gap-4 text-[10px] font-bold uppercase tracking-widest">
+            <a href="collection.html" class="hover:text-cyan-400">Vault</a>
+            <a href="import.html" class="hover:text-cyan-400">Uplink</a>
+        </nav>
+    </header>
+
+    <main class="p-6 grid grid-cols-12 gap-6">
+        <div class="col-span-3 panel p-4 h-fit">
+            <button @click="createNewDeck()" class="w-full btn-primary mb-4">+ New Deck</button>
+            <template x-for="deck in decks" :key="deck.id">
+                <div @click="activeDeck = deck" :class="activeDeck?.id === deck.id ? 'border-cyan-400 bg-white/5' : 'border-transparent'" class="p-3 border-l-2 cursor-pointer mb-1 transition">
+                    <div x-text="deck.name" class="font-bold"></div>
+                    <div class="text-[10px] text-cyan-400/50" x-text="getCardCount(deck) + ' CARDS'"></div>
+                </div>
+            </template>
+        </div>
+
+        <div class="col-span-9" x-show="activeDeck">
+            <div class="panel p-6 mb-6 flex justify-between items-center">
+                <h2 class="text-4xl font-bold uppercase italic" x-text="activeDeck.name"></h2>
+                <div class="text-right">
+                    <p class="text-xs text-slate-500 uppercase">Total Value</p>
+                    <p class="text-2xl font-bold text-cyan-400 font-mono">$<span x-text="getDeckPrice()"></span></p>
+                </div>
+            </div>
+
+            <input type="text" x-model="searchQuery" @input.debounce.500ms="searchCards()" placeholder="Search Scryfall..." class="w-full bg-black/40 border border-white/10 p-4 rounded font-mono focus:border-cyan-400 outline-none mb-6">
+            
+            <div x-show="searchResults.length" class="panel absolute w-1/2 z-50 max-h-60 overflow-y-auto shadow-2xl">
+                <template x-for="card in searchResults" :key="card.id">
+                    <div class="p-3 hover:bg-cyan-400/10 flex justify-between items-center border-b border-white/5">
+                        <span x-text="card.name" class="font-bold" @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()"></span>
+                        <button @click="addCard(card)" class="text-[10px] bg-cyan-400 text-black px-3 py-1 font-bold">+ ADD</button>
+                    </div>
+                </template>
+            </div>
+
+            <div class="scroll-area grid grid-cols-2 gap-4">
+                <template x-for="card in activeDeck.cards" :key="card.id">
+                    <div class="panel p-3 flex justify-between items-center">
+                        <div>
+                            <p x-text="card.name" class="font-bold" @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()"></p>
+                            <p class="text-[10px] text-slate-500" x-text="card.type_line"></p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <span class="font-mono text-cyan-400" x-text="'x' + card.qty"></span>
+                            <button @click="removeCard(card)" class="text-slate-500 hover:text-white">✕</button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function deckApp() {
+            return {
+                decks: JSON.parse(localStorage.getItem('decks') || '[]'),
+                activeDeck: null, searchQuery: '', searchResults: [],
+                hoverPreview: { visible: false, url: '', x: 0, y: 0 },
+                init() { if(this.decks.length) this.activeDeck = this.decks[0]; },
+                async searchCards() {
+                    if(this.searchQuery.length < 3) return;
+                    const res = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(this.searchQuery)}`);
+                    const data = await res.json();
+                    this.searchResults = data.data?.slice(0, 10) || [];
+                },
+                addCard(card) {
+                    let existing = this.activeDeck.cards.find(c => c.id === card.id);
+                    existing ? existing.qty++ : this.activeDeck.cards.push({...card, qty: 1});
+                    this.save(); this.searchResults = []; this.searchQuery = '';
+                },
+                removeCard(card) {
+                    this.activeDeck.cards = this.activeDeck.cards.filter(c => c.id !== card.id);
+                    this.save();
+                },
+                getCardCount(deck) { return deck.cards.reduce((s, c) => s + c.qty, 0); },
+                getDeckPrice() {
+                    return this.activeDeck.cards.reduce((s, c) => s + (parseFloat(c.prices?.usd || 0) * c.qty), 0).toFixed(2);
+                },
+                save() { localStorage.setItem('decks', JSON.stringify(this.decks)); },
+                createNewDeck() {
+                    const name = prompt("Deck Name:");
+                    if(!name) return;
+                    const d = { id: Date.now(), name, cards: [] };
+                    this.decks.push(d); this.activeDeck = d; this.save();
+                },
+                showPreview(e, url) { this.hoverPreview = { visible: true, url, x: e.clientX, y: e.clientY }; },
+                hidePreview() { this.hoverPreview.visible = false; }
+            }
+        }
+    </script>
+</body>
+</html>
