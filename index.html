@@ -262,13 +262,16 @@
             this.activeTab = 'decks';
         },
 
-        // Helper to get the SPECIFIC art for the printing
-        getCardImage(card) {
-            if (card.set && card.number) {
-                return `https://api.scryfall.com/cards/${card.set}/${card.number}?format=image`;
-            }
-            return `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&format=image`;
-        },
+      
+       getCardImage(card) {
+    // Safety check: if card doesn't exist yet, return a blank pixel or placeholder
+    if (!card) return 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
+    if (card.set && card.number) {
+        return `https://api.scryfall.com/cards/${card.set.toLowerCase()}/${card.number}?format=image`;
+    }
+    return `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&format=image`;
+}
 
         createNewDeck() {
             const name = prompt("Deck Name:");
