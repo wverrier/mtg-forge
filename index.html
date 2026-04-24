@@ -54,13 +54,37 @@
          class="card-preview-float" 
          :style="`left:${hoverPreview.x + 20}px; top:${hoverPreview.y - 120}px`" />
 
-    <header class="panel border-b px-6 py-4 flex justify-between items-center sticky top-0 z-50 shadow-xl">
-        <h1 class="text-3xl font-bold tracking-tighter text-cyan-400" style="font-family: 'Bebas Neue'">FORGE // VAULT</h1>
-        <nav class="flex gap-6">
-            <a href="index.html" class="text-xs font-bold uppercase tracking-widest hover:text-cyan-400">← Back to Terminal</a>
+  <header class="panel border-b border-cyan-400/20 px-6 py-4 flex justify-between items-center sticky top-0 z-50 shadow-2xl">
+    <div class="flex items-center gap-8">
+        <div>
+            <h1 class="text-3xl font-bold tracking-tighter text-cyan-400" style="font-family: 'Bebas Neue'">FORGE</h1>
+            <p class="text-[10px] font-mono text-steel opacity-70 tracking-widest uppercase">Deck Construction Terminal</p>
+        </div>
+        
+        <nav class="flex gap-1 ml-4 bg-black/20 p-1 rounded border border-white/5">
+            <button @click="activeTab='decks'" 
+                :class="activeTab==='decks' ? 'bg-cyan-400 text-black' : 'text-steel hover:text-white'"
+                class="px-4 py-1.5 text-xs font-bold uppercase tracking-tighter transition-all duration-200">
+                Decks
+            </button>
+            
+            <a href="collection.html" 
+                class="px-4 py-1.5 text-xs text-steel hover:text-white font-bold uppercase tracking-tighter transition-all duration-200 flex items-center">
+                Vault
+            </a>
+            
+            <button @click="activeTab='import'" 
+                :class="activeTab==='import' ? 'bg-cyan-400 text-black' : 'text-steel hover:text-white'"
+                class="px-4 py-1.5 text-xs font-bold uppercase tracking-tighter transition-all duration-200">
+                Import
+            </button>
         </nav>
-    </header>
+    </div>
 
+    <div class="hidden md:block">
+        <span class="text-[10px] font-mono text-cyan-400/50 uppercase">System Status: Online</span>
+    </div>
+</header>
     <main class="p-8">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6">
             <div>
