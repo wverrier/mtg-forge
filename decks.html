@@ -14,8 +14,6 @@
         .card-preview-float { position: fixed; z-index: 3000; width: 240px; pointer-events: none; border-radius: 12px; border: 1px solid rgba(34, 211, 238, 0.3); }
         .category-header { font-family: 'Bebas Neue'; letter-spacing: 1px; color: var(--steel); border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 4px; padding-bottom: 2px; }
         .scroll-v { overflow-y: auto; height: calc(100vh - 280px); scrollbar-width: thin; scrollbar-color: var(--cyan) transparent; }
-        
-        /* Specific brand blue for the counter */
         .brand-blue { color: rgb(34, 211, 238); }
     </style>
 </head>
@@ -57,24 +55,28 @@
 
         <div class="col-span-10 flex flex-col gap-4" x-show="activeDeck">
             
-            <div class="panel p-6 flex justify-between items-center relative overflow-hidden">
-                <div class="absolute top-[-20px] right-4 opacity-5 font-mono text-[120px] leading-none select-none brand-blue" x-text="countAllCards(activeDeck)"></div>
+            <div class="panel p-6 grid grid-cols-3 items-center gap-4 relative overflow-hidden">
+                <div class="absolute top-[-20px] right-1/2 translate-x-1/2 opacity-5 font-mono text-[120px] leading-none select-none brand-blue" x-text="countAllCards(activeDeck)"></div>
                 
                 <div>
-                    <h2 class="text-5xl font-bold uppercase italic" x-text="activeDeck.name"></h2>
-                    <div class="flex gap-4 mt-2 font-mono text-xs brand-blue">
+                    <h2 class="text-4xl font-bold uppercase italic truncate" x-text="activeDeck.name"></h2>
+                </div>
+
+                <div class="flex flex-col items-center justify-center border-x border-white/5 h-full">
+                    <p class="text-[10px] text-steel uppercase tracking-[0.3em] mb-1">Combat Readiness</p>
+                    <div class="flex gap-6 font-mono text-sm brand-blue font-bold">
                         <span>COUNT: <span x-text="countAllCards(activeDeck)"></span> / 100</span>
-                        <span>VALUE: $<span x-text="getDeckPrice()"></span></span>
+                        <span>EST. VALUE: $<span x-text="getDeckPrice()"></span></span>
                     </div>
                 </div>
 
                 <div class="z-10 flex flex-col items-end">
-                    <p class="text-[9px] font-mono text-steel mb-1 uppercase tracking-widest">Add unit to manifest</p>
-                    <input type="text" x-model="searchQuery" @input.debounce.500ms="searchCards()" placeholder="TYPE NAME..." class="w-64 bg-black/40 border border-cyan-400/20 p-2 text-xs font-mono focus:border-cyan-400 outline-none">
+                    <p class="text-[9px] font-mono text-steel mb-1 uppercase tracking-widest">Query Scryfall Database</p>
+                    <input type="text" x-model="searchQuery" @input.debounce.500ms="searchCards()" placeholder="ENTER CARD NAME..." class="w-full max-w-[280px] bg-black/40 border border-cyan-400/20 p-2 text-xs font-mono focus:border-cyan-400 outline-none">
                 </div>
             </div>
 
-            <div x-show="searchResults.length" class="absolute right-8 top-44 w-64 panel z-[100] shadow-2xl max-h-80 overflow-y-auto">
+            <div x-show="searchResults.length" class="absolute right-8 top-44 w-72 panel z-[100] shadow-2xl max-h-80 overflow-y-auto border-cyan-400/40">
                 <template x-for="card in searchResults" :key="card.id">
                     <div @click="addCard(card, 'main')" class="p-2 hover:bg-cyan-400/10 border-b border-white/5 cursor-pointer group">
                         <p x-text="card.name" class="text-xs font-bold truncate group-hover:brand-blue transition-colors" @mouseenter="showPreview($event, card.image_uris?.normal)"></p>
@@ -127,7 +129,6 @@
                 <div class="col-span-3 flex flex-col gap-4 overflow-hidden">
                     <div class="panel p-4 flex-1 scroll-v">
                         <h3 class="category-header text-xs">Tactical Sideboard</h3>
-                        <p class="text-[9px] text-steel mb-2 opacity-50 font-mono italic">Right-click search results to add here</p>
                         <template x-for="card in activeDeck.sideboard" :key="card.id">
                             <div class="flex justify-between py-1 text-[11px] group">
                                 <span x-text="card.name" class="truncate font-bold opacity-80 group-hover:opacity-100" @mouseenter="showPreview($event, card.image_uris?.normal)"></span>
@@ -184,9 +185,12 @@
                     });
                 },
                 getOwnershipIcon(card) {
-                    const vMatch = this.vault.find(v => v.name.toLowerCase() === card.name.toLowerCase());
-                    if(!vMatch) return '✕';
-                    return vMatch.qty >= card.qty ? '✓' : '!';
+                    // NEW: Search vault by name only to handle different printings
+                    const matches = this.vault.filter(v => v.name.toLowerCase() === card.name.toLowerCase());
+                    const totalOwned = matches.reduce((sum, v) => sum + v.qty, 0);
+                    
+                    if(totalOwned === 0) return '✕';
+                    return totalOwned >= card.qty ? '✓' : '!';
                 },
                 getOwnershipStyle(card) {
                     const icon = this.getOwnershipIcon(card);
