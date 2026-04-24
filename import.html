@@ -12,12 +12,13 @@
         .brand-blue { color: rgb(34, 211, 238); }
         .btn-primary { border: 1px solid var(--cyan); color: var(--cyan); padding: 0.8rem; text-transform: uppercase; font-weight: 700; clip-path: polygon(0 0, 95% 0, 100% 25%, 100% 100%, 5% 100%, 0 75%); transition: 0.2s; cursor: pointer; }
         .btn-primary:hover { background: var(--cyan); color: black; }
-        
         .btn-danger { border: 1px solid var(--red); color: var(--red); padding: 0.8rem; text-transform: uppercase; font-weight: 700; clip-path: polygon(0 0, 95% 0, 100% 25%, 100% 100%, 5% 100%, 0 75%); transition: 0.2s; cursor: pointer; }
         .btn-danger:hover { background: var(--red); color: white; }
-
         .modal-bg { background: rgba(0,0,0,0.9); backdrop-filter: blur(8px); }
-        textarea::placeholder { color: rgba(34, 211, 238, 0.1); }
+        
+        /* Loading Bar Styles */
+        .progress-track { background: rgba(255,255,255,0.05); height: 4px; width: 200px; border-radius: 2px; overflow: hidden; position: relative; }
+        .progress-fill { background: var(--cyan); height: 100%; transition: width 0.3s ease; box-shadow: 0 0 10px var(--cyan); }
     </style>
 </head>
 <body x-data="importApp()">
@@ -26,16 +27,10 @@
         <div class="panel w-full max-w-lg p-8 border-t-4 border-t-cyan-400">
             <h3 class="text-2xl font-bold italic brand-blue mb-2">INGESTION PROTOCOL</h3>
             <p class="text-xs text-steel uppercase tracking-widest mb-8">Select handling method for incoming data streams.</p>
-            
             <div class="grid grid-cols-2 gap-4">
-                <button @click="executeIngest(true)" class="btn-danger text-xs">
-                    Overwrite<br><span class="text-[9px] opacity-60">Purge Vault</span>
-                </button>
-                <button @click="executeIngest(false)" class="btn-primary text-xs">
-                    Merge<br><span class="text-[9px] opacity-60">Combine Data</span>
-                </button>
+                <button @click="executeIngest(true)" class="btn-danger text-xs">Overwrite<br><span class="text-[9px] opacity-60">Purge Vault</span></button>
+                <button @click="executeIngest(false)" class="btn-primary text-xs">Merge<br><span class="text-[9px] opacity-60">Combine Data</span></button>
             </div>
-            
             <button @click="showConfirm = false" class="w-full mt-6 text-[10px] text-steel hover:text-white uppercase font-bold tracking-widest">Abort Command</button>
         </div>
     </div>
@@ -63,9 +58,19 @@
                       class="flex-1 bg-black/40 border border-white/10 p-6 font-mono text-xs focus:border-cyan-400 outline-none text-cyan-100 resize-none" 
                       placeholder="1 Quill-Blade Laureate [SOS] 27..."></textarea>
             
-            <div class="flex justify-end items-center border-t border-white/5 pt-6">
+            <div class="flex justify-between items-center border-t border-white/5 pt-6">
+                <div class="flex flex-col gap-2" x-show="processing">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[9px] uppercase tracking-widest brand-blue animate-pulse">Syncing Data...</span>
+                        <span class="text-[9px] font-mono text-steel" x-text="Math.round(progress) + '%'"></span>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill" :style="`width: ${progress}%`"></div>
+                    </div>
+                </div>
+                <div x-show="!processing" class="text-[9px] text-steel uppercase tracking-widest">System Ready</div>
+
                 <div class="flex items-center gap-4">
-                    <div x-show="processing" class="text-[10px] italic animate-pulse brand-blue uppercase tracking-widest">Writing to Vault...</div>
                     <button @click="showConfirm = true" :disabled="processing || !rawInput.trim()" class="btn-primary px-12">Initialise Ingest</button>
                 </div>
             </div>
@@ -78,18 +83,21 @@
                 rawInput: '', 
                 processing: false,
                 showConfirm: false,
+                progress: 0,
                 
                 async executeIngest(overwrite) {
                     this.showConfirm = false;
                     this.processing = true;
+                    this.progress = 0;
                     
-                    const lines = this.rawInput.split('\n');
+                    const lines = this.rawInput.split('\n').filter(l => l.trim());
+                    const totalLines = lines.length;
                     let vault = overwrite ? [] : JSON.parse(localStorage.getItem('forge_vault') || '[]');
 
-                    for (let line of lines) {
-                        if (!line.trim()) continue;
-
-                        // Precise Parser: Qty, Name, Set, Number
+                    for (let i = 0; i < totalLines; i++) {
+                        const line = lines[i];
+                        
+                        // Precise Parser
                         const match = line.match(/^(\d+)\s+([^\[\(]+)(?:\s*[\(\[].*?[\)\]])?\s*\[(.*?)\]\s*(\d+)?/);
                         let qty, name, set, num;
 
@@ -116,7 +124,6 @@
                             if (existing) {
                                 existing.qty += qty;
                             } else {
-                                // Background fetch for type data
                                 try {
                                     const res = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`);
                                     const data = await res.json();
@@ -131,11 +138,16 @@
                                 }
                             }
                         }
+                        // Update progress bar
+                        this.progress = ((i + 1) / totalLines) * 100;
+                        // Tiny delay to keep the UI responsive and let the bar animate smoothly
+                        await new Promise(r => setTimeout(r, 10));
                     }
 
                     localStorage.setItem('forge_vault', JSON.stringify(vault));
                     this.rawInput = '';
                     this.processing = false;
+                    this.progress = 0;
                     alert(overwrite ? "VAULT RECONSTRUCTED FROM SOURCE." : "VAULT DATA MERGED.");
                 }
             }
