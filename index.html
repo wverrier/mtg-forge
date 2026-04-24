@@ -45,16 +45,37 @@
 
     <img x-show="hoverPreview.visible" :src="hoverPreview.url" class="card-preview-float" :style="`left:${hoverPreview.x+20}px; top:${hoverPreview.y-100}px`" />
 
-    <header class="panel border-b px-6 py-4 flex justify-between items-center">
+    <header class="panel border-b border-cyan-400/20 px-6 py-4 flex justify-between items-center sticky top-0 z-50 shadow-2xl">
+    <div class="flex items-center gap-8">
         <div>
             <h1 class="text-3xl font-bold tracking-tighter text-cyan-400" style="font-family: 'Bebas Neue'">FORGE</h1>
-            <p class="text-xs font-mono text-steel opacity-70">MTG COMMANDER TERMINAL</p>
+            <p class="text-[10px] font-mono text-steel opacity-70 tracking-widest uppercase">Deck Construction Terminal</p>
         </div>
-        <div class="flex gap-4">
-            <button @click="activeTab='decks'" class="btn-primary">Decks</button>
-            <button @click="activeTab='import'" class="btn-primary">Import CSV</button>
-        </div>
-    </header>
+        
+        <nav class="flex gap-1 ml-4 bg-black/20 p-1 rounded border border-white/5">
+            <button @click="activeTab='decks'" 
+                :class="activeTab==='decks' ? 'bg-cyan-400 text-black' : 'text-steel hover:text-white'"
+                class="px-4 py-1.5 text-xs font-bold uppercase tracking-tighter transition-all duration-200">
+                Decks
+            </button>
+            
+            <a href="collection.html" 
+                class="px-4 py-1.5 text-xs text-steel hover:text-white font-bold uppercase tracking-tighter transition-all duration-200">
+                Collection
+            </a>
+            
+            <button @click="activeTab='import'" 
+                :class="activeTab==='import' ? 'bg-cyan-400 text-black' : 'text-steel hover:text-white'"
+                class="px-4 py-1.5 text-xs font-bold uppercase tracking-tighter transition-all duration-200">
+                Import CSV
+            </button>
+        </nav>
+    </div>
+
+    <div class="hidden md:block">
+        <span class="text-[10px] font-mono text-cyan-400/50 uppercase">System Status: Online</span>
+    </div>
+</header>
 
     <main class="p-6">
         <div x-show="activeTab==='decks'" class="grid grid-cols-12 gap-6">
