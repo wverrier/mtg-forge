@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><title>FORGE // UPLINK</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --gunmetal: #111c1e; --dark: #1a2527; --cyan: #4dd9f0; }
+        body { background: var(--gunmetal); color: #e8eef0; font-family: 'Rajdhani', sans-serif; }
+        .panel { background: var(--dark); border: 1px solid rgba(77,217,240,0.1); }
+        .btn-primary { border: 1px solid var(--cyan); color: var(--cyan); padding: 1rem; text-transform: uppercase; font-weight: 700; clip-path: polygon(0 0, 95% 0, 100% 25%, 100% 100%, 5% 100%, 0 75%); transition: 0.2s; }
+        .btn-primary:hover { background: var(--cyan); color: black; }
+    </style>
+</head>
+<body x-data="importApp()">
+    <header class="panel px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+        <a href="index.html" class="text-2xl font-bold text-cyan-400" style="font-family: 'Bebas Neue'">FORGE // UPLINK</a>
+        <nav class="flex gap-4 text-[10px] font-bold uppercase tracking-widest">
+            <a href="decks.html" class="hover:text-cyan-400">Decks</a>
+            <a href="collection.html" class="hover:text-cyan-400">Vault</a>
+        </nav>
+    </header>
+
+    <main class="max-w-4xl mx-auto p-12">
+        <div class="panel p-10">
+            <h2 class="text-4xl font-bold uppercase italic mb-2 text-cyan-400" style="font-family: 'Bebas Neue'">Data Uplink</h2>
+            <p class="text-slate-500 font-mono text-xs mb-8">FORMAT: [QTY] [NAME] [[SET]] [NUMBER]</p>
+            
+            <textarea x-model="raw" placeholder="1 Sol Ring [CC2] 405..." class="w-full h-80 bg-black/40 border border-white/10 p-6 font-mono text-sm focus:border-cyan-400 outline-none mb-6"></textarea>
+            
+            <button @click="process()" class="w-full btn-primary text-xl">Initialize Vault Sync</button>
+        </div>
+    </main>
+
+    <script>
+        function importApp() {
+            return {
+                raw: '',
+                process() {
+                    if(!this.raw.trim()) return;
+                    const lines = this.raw.split('\n');
+                    const cards = [];
+                    lines.forEach(l => {
+                        const m = l.match(/^(\d+)\s+(.+?)\s+\[(.+?)\]\s+(\d+)$/) || l.match(/^(\d+)\s+(.+)$/);
+                        if(m) cards.push({ qty: parseInt(m[1]), name: m[2].trim(), set: m[3]?.toLowerCase(), number: m[4] });
+                    });
+                    localStorage.setItem('forge_vault', JSON.stringify(cards));
+                    alert("Sync Complete."); window.location.href = 'collection.html';
+                }
+            }
+        }
+    </script>
+</body>
+</html>
