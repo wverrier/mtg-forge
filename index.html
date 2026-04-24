@@ -180,6 +180,43 @@
             init() {
                 if (this.decks.length) this.activeDeck = this.decks[0];
             },
+            importData() {
+    // 1. Ask the user if they want to replace or add to the current list
+    const shouldReplace = confirm("Do you want to REPLACE your current collection? (Click 'Cancel' to just ADD to it)");
+
+    const lines = this.importText.split('\n');
+    const newCards = [];
+
+    lines.forEach(line => {
+        const match = line.match(/^(\d+)\s+(.+)$/);
+        if (match) {
+            newCards.push({
+                qty: parseInt(match[1]),
+                name: match[2].trim()
+            });
+        }
+    });
+
+    if (shouldReplace) {
+        // Clear the old list and set the new one
+        this.cards = newCards;
+    } else {
+        // The old "Add Up" logic
+        newCards.forEach(newCard => {
+            const existing = this.cards.find(c => c.name === newCard.name);
+            if (existing) {
+                existing.qty += newCard.qty;
+            } else {
+                this.cards.push(newCard);
+            }
+        });
+    }
+
+    // Save to LocalStorage and reset
+    this.saveToLocalStorage();
+    this.importText = '';
+    this.showImportModal = false;
+}
 
             processBulkText() {
                 if (!this.bulkText.trim()) return;
