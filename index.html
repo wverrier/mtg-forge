@@ -168,7 +168,7 @@
    function forgeApp() {
     return {
         activeTab: 'decks',
-        bulkText: '', // This is the text from your textarea
+        bulkText: '',
         collectionData: JSON.parse(localStorage.getItem('forge_vault') || '[]'),
         activeDeck: null,
         decks: JSON.parse(localStorage.getItem('decks') || '[]'),
@@ -180,35 +180,50 @@
             if (this.decks.length) this.activeDeck = this.decks[0];
         },
 
-        // This is your new, unified Import/Sync logic
         processBulkText() {
             if (!this.bulkText.trim()) return;
 
-            // 1. Ask the user's intent
-            const shouldReplace = confirm("Do you want to REPLACE your vault? (Click 'OK' to replace, 'Cancel' to add to current quantities)");
+            // 1. Confirm Intent
+            const shouldReplace = confirm("Do you want to REPLACE your vault? (OK) or ADD to existing quantities? (Cancel)");
 
             const lines = this.bulkText.split('\n');
             const newCards = [];
 
-            // 2. Parse the text
+            // 2. Parse TCG Player & Standard Formats
             lines.forEach(line => {
-                const match = line.trim().match(/^(\d+)\s+(.+)$/);
-                if (match) {
+                const text = line.trim();
+                if (!text) return;
+
+                // Regex for: Qty Name [SET] Number (e.g. 1 Swamp [THS] 239)
+                const tcgMatch = text.match(/^(\d+)\s+(.+?)\s+\[(.+?)\]\s+(\d+)$/);
+                
+                if (tcgMatch) {
+                    // We clean the name to remove things like "(239)" so the "Owned" check works better
+                    let cleanName = tcgMatch[2].split(' (')[0].trim();
                     newCards.push({
-                        qty: parseInt(match[1]),
-                        name: match[2].trim()
+                        qty: parseInt(tcgMatch[1]),
+                        name: cleanName,
+                        set: tcgMatch[3].toLowerCase(),
+                        number: tcgMatch[4]
                     });
-                } else if (line.trim()) {
-                    newCards.push({ qty: 1, name: line.trim() });
+                } else {
+                    // Fallback for simple "1 Card Name" format
+                    const simpleMatch = text.match(/^(\d+)\s+(.+)$/);
+                    if (simpleMatch) {
+                        newCards.push({
+                            qty: parseInt(simpleMatch[1]),
+                            name: simpleMatch[2].trim()
+                        });
+                    }
                 }
             });
 
+            // 3. Sync Logic
             if (shouldReplace) {
-                // Completely overwrite
                 this.collectionData = newCards;
             } else {
-                // Add to existing or update qty
                 newCards.forEach(newCard => {
+                    // Check ownership by name to prevent duplicates
                     const existing = this.collectionData.find(c => c.name.toLowerCase() === newCard.name.toLowerCase());
                     if (existing) {
                         existing.qty += newCard.qty;
@@ -218,12 +233,19 @@
                 });
             }
 
-            // 3. Save and Reset
+            // 4. Save and Reset
             localStorage.setItem('forge_vault', JSON.stringify(this.collectionData));
-            alert(`Vault Updated: ${this.collectionData.length} unique entries.`);
-            
+            alert(`Vault Synced: ${this.collectionData.length} unique items.`);
             this.bulkText = '';
-            this.activeTab = 'decks'; // Switches view back to decks after import
+            this.activeTab = 'decks';
+        },
+
+        // Helper to get the SPECIFIC art for the printing
+        getCardImage(card) {
+            if (card.set && card.number) {
+                return `https://api.scryfall.com/cards/${card.set}/${card.number}?format=image`;
+            }
+            return `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&format=image`;
         },
 
         createNewDeck() {
