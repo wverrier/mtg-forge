@@ -6,61 +6,58 @@
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        :root { --gunmetal: #111c1e; --dark: #1a2527; --cyan: #4dd9f0; }
-        body { background: var(--gunmetal); color: #e8eef0; font-family: 'Rajdhani', sans-serif; }
-        .panel { background: var(--dark); border: 1px solid rgba(77,217,240,0.1); }
-        .card-row:hover { background: rgba(77,217,240,0.05); border-left: 2px solid var(--cyan); }
-        .card-preview-float { position: fixed; z-index: 3000; width: 250px; pointer-events: none; border-radius: 12px; }
+        :root { --gunmetal: #111c1e; --dark: #1a2527; --cyan: #22d3ee; --steel: #8fa9b0; }
+        body { background: var(--gunmetal); color: #e8eef0; font-family: 'Rajdhani', sans-serif; overflow: hidden; }
+        .panel { background: var(--dark); border: 1px solid rgba(34, 211, 238, 0.1); }
+        .brand-blue { color: rgb(34, 211, 238); }
+        .scroll-v { overflow-y: auto; height: calc(100vh - 180px); scrollbar-width: thin; scrollbar-color: var(--cyan) transparent; }
     </style>
 </head>
-<body x-data="vaultApp()">
-    <img x-show="hoverPreview.visible" :src="hoverPreview.url" class="card-preview-float shadow-2xl" :style="`left:${hoverPreview.x+20}px; top:${hoverPreview.y-120}px`" />
+<body x-data="vaultApp()" x-init="init()">
 
-    <header class="panel px-6 py-4 flex justify-between items-center sticky top-0 z-50">
-        <a href="index.html" class="text-2xl font-bold text-cyan-400" style="font-family: 'Bebas Neue'">FORGE // VAULT</a>
-        <nav class="flex gap-4 text-[10px] font-bold uppercase tracking-widest">
-            <a href="decks.html" class="hover:text-cyan-400">Decks</a>
-            <a href="import.html" class="hover:text-cyan-400">Uplink</a>
-        </nav>
+    <header class="panel px-6 py-4 flex justify-between items-center border-b border-cyan-400/20 shadow-xl">
+        <div class="flex items-center gap-6">
+            <a href="index.html" class="text-3xl font-bold brand-blue" style="font-family: 'Bebas Neue'">FORGE // VAULT</a>
+            <nav class="flex gap-4 text-[10px] font-bold uppercase tracking-widest text-steel">
+                <a href="decks.html" class="hover:brand-blue transition">Decks</a>
+                <a href="import.html" class="hover:brand-blue transition">Uplink</a>
+            </nav>
+        </div>
+        <div class="text-xs font-mono text-steel">
+            TOTAL UNITS: <span class="brand-blue" x-text="vault.reduce((s,c) => s + c.qty, 0)"></span>
+        </div>
     </header>
 
-    <main class="p-8">
-        <div class="flex justify-between items-end mb-10">
-            <div>
-                <h2 class="text-5xl font-bold uppercase italic">Owned Manifest</h2>
-                <p class="text-cyan-400 font-mono text-sm" x-text="cards.length + ' ENTRIES'"></p>
-            </div>
-            <input type="text" x-model="filter" placeholder="FILTER VAULT..." class="bg-black/40 border border-white/10 px-4 py-2 text-sm font-mono focus:border-cyan-400 outline-none w-80">
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-x-8 gap-y-1">
-            <template x-for="card in filteredCards" :key="card.name">
-                <div class="card-row flex justify-between items-center px-3 py-1.5 cursor-crosshair group transition-all"
-                     @mouseenter="showPreview($event, card)" @mouseleave="hidePreview()">
-                    <div class="flex items-center gap-3">
-                        <span class="text-cyan-400 font-mono text-xs" x-text="card.qty + 'x'"></span>
-                        <span class="font-bold text-sm uppercase truncate" x-text="card.name"></span>
+    <main class="p-6">
+        <div class="panel p-6 scroll-v">
+            <div class="grid grid-cols-4 gap-4">
+                <template x-for="card in vault" :key="card.name">
+                    <div class="flex justify-between items-center p-3 bg-black/20 border border-white/5 rounded group">
+                        <div>
+                            <p class="text-sm font-bold uppercase" x-text="card.name"></p>
+                            <p class="text-[10px] text-steel" x-text="card.type"></p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <span class="font-mono brand-blue font-bold" x-text="'x'+card.qty"></span>
+                            <button @click="removeItem(card.name)" class="text-red-500 opacity-0 group-hover:opacity-100 transition text-[10px] font-bold">PURGE</button>
+                        </div>
                     </div>
-                </div>
-            </template>
+                </template>
+            </div>
         </div>
     </main>
 
     <script>
         function vaultApp() {
             return {
-                cards: JSON.parse(localStorage.getItem('forge_vault') || '[]'),
-                filter: '', hoverPreview: { visible: false, url: '', x: 0, y: 0 },
-                get filteredCards() {
-                    return this.cards.filter(c => c.name.toLowerCase().includes(this.filter.toLowerCase()));
-                },
-                showPreview(e, card) {
-                    const url = card.set && card.number ? 
-                        `https://api.scryfall.com/cards/${card.set}/${card.number}?format=image` : 
-                        `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&format=image`;
-                    this.hoverPreview = { visible: true, url, x: e.clientX, y: e.clientY };
-                },
-                hidePreview() { this.hoverPreview.visible = false; }
+                vault: JSON.parse(localStorage.getItem('forge_vault') || '[]'),
+                init() {},
+                removeItem(name) {
+                    if(confirm("Confirm deletion?")) {
+                        this.vault = this.vault.filter(c => c.name !== name);
+                        localStorage.setItem('forge_vault', JSON.stringify(this.vault));
+                    }
+                }
             }
         }
     </script>
