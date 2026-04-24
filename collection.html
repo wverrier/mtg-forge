@@ -10,10 +10,15 @@
         body { background: var(--gunmetal); color: #e8eef0; font-family: 'Rajdhani', sans-serif; overflow: hidden; }
         .panel { background: var(--dark); border: 1px solid rgba(34, 211, 238, 0.1); }
         .brand-blue { color: rgb(34, 211, 238); }
-        .scroll-v { overflow-y: auto; height: calc(100vh - 180px); scrollbar-width: thin; scrollbar-color: var(--cyan) transparent; }
+        .scroll-v { overflow-y: auto; height: calc(100vh - 120px); scrollbar-width: thin; scrollbar-color: var(--cyan) transparent; }
+        .card-preview-float { position: fixed; z-index: 3000; width: 240px; pointer-events: none; border-radius: 12px; border: 1px solid rgba(34, 211, 238, 0.3); }
+        .qty-btn { transition: 0.2s; border: 1px solid rgba(255,255,255,0.05); }
+        .qty-btn:hover { background: var(--cyan); color: black; border-color: var(--cyan); }
     </style>
 </head>
 <body x-data="vaultApp()" x-init="init()">
+
+    <img x-show="hoverPreview.visible" :src="hoverPreview.url" class="card-preview-float shadow-2xl" :style="`left:${hoverPreview.x+20}px; top:${hoverPreview.y-120}px`" />
 
     <header class="panel px-6 py-4 flex justify-between items-center border-b border-cyan-400/20 shadow-xl">
         <div class="flex items-center gap-6">
@@ -23,23 +28,39 @@
                 <a href="import.html" class="hover:brand-blue transition">Uplink</a>
             </nav>
         </div>
-        <div class="text-xs font-mono text-steel">
-            TOTAL UNITS: <span class="brand-blue" x-text="vault.reduce((s,c) => s + c.qty, 0)"></span>
+        <div class="flex items-center gap-4">
+            <input type="text" x-model="searchQuery" placeholder="FILTER VAULT..." class="bg-black/40 border border-white/5 p-2 text-[10px] font-mono outline-none focus:border-cyan-400 w-48">
+            <div class="text-[10px] font-mono text-steel uppercase tracking-tighter">
+                Total Units: <span class="brand-blue text-xs" x-text="vault.reduce((s,c) => s + c.qty, 0)"></span>
+            </div>
         </div>
     </header>
 
     <main class="p-6">
-        <div class="panel p-6 scroll-v">
-            <div class="grid grid-cols-4 gap-4">
-                <template x-for="card in vault" :key="card.name">
-                    <div class="flex justify-between items-center p-3 bg-black/20 border border-white/5 rounded group">
-                        <div>
-                            <p class="text-sm font-bold uppercase" x-text="card.name"></p>
-                            <p class="text-[10px] text-steel" x-text="card.type"></p>
+        <div class="scroll-v pr-2">
+            <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                <template x-for="card in filteredVault" :key="card.name">
+                    <div class="panel p-3 flex justify-between items-center group hover:border-cyan-400/30 transition-colors">
+                        <div class="truncate pr-2">
+                            <p class="text-xs font-bold uppercase truncate cursor-help" 
+                               @mouseenter="showPreview($event, card.name)" 
+                               @mouseleave="hidePreview()"
+                               x-text="card.name"></p>
+                            <p class="text-[9px] text-steel uppercase tracking-widest" x-text="card.type || 'Unit'"></p>
                         </div>
-                        <div class="flex items-center gap-4">
-                            <span class="font-mono brand-blue font-bold" x-text="'x'+card.qty"></span>
-                            <button @click="removeItem(card.name)" class="text-red-500 opacity-0 group-hover:opacity-100 transition text-[10px] font-bold">PURGE</button>
+                        
+                        <div class="flex items-center gap-3">
+                            <div class="flex items-center bg-black/40 rounded overflow-hidden">
+                                <button @click="updateQty(card, -1)" class="qty-btn px-2 py-1 text-[10px] font-bold">-</button>
+                                <span class="px-3 font-mono text-[10px] brand-blue font-bold min-w-[30px] text-center" x-text="card.qty"></span>
+                                <button @click="updateQty(card, 1)" class="qty-btn px-2 py-1 text-[10px] font-bold">+</button>
+                            </div>
+                            
+                            <button @click="purge(card)" class="text-red-500/40 hover:text-red-500 transition px-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
                         </div>
                     </div>
                 </template>
@@ -51,12 +72,51 @@
         function vaultApp() {
             return {
                 vault: JSON.parse(localStorage.getItem('forge_vault') || '[]'),
-                init() {},
-                removeItem(name) {
-                    if(confirm("Confirm deletion?")) {
-                        this.vault = this.vault.filter(c => c.name !== name);
-                        localStorage.setItem('forge_vault', JSON.stringify(this.vault));
-                    }
+                searchQuery: '',
+                hoverPreview: { visible: false, url: '', x: 0, y: 0 },
+                
+                init() {
+                    // Sorting A-Z on load
+                    this.vault.sort((a, b) => a.name.localeCompare(b.name));
+                },
+
+                get filteredVault() {
+                    if (!this.searchQuery) return this.vault;
+                    return this.vault.filter(c => c.name.toLowerCase().includes(this.searchQuery.toLowerCase()));
+                },
+
+                updateQty(card, val) {
+                    card.qty += val;
+                    if (card.qty < 1) card.qty = 1;
+                    this.save();
+                },
+
+                purge(card) {
+                    this.vault = this.vault.filter(c => c !== card);
+                    this.save();
+                },
+
+                async showPreview(e, name) {
+                    this.hoverPreview.x = e.clientX;
+                    this.hoverPreview.y = e.clientY;
+                    
+                    try {
+                        const res = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(name)}`);
+                        const data = await res.json();
+                        if (data.image_uris) {
+                            this.hoverPreview.url = data.image_uris.normal;
+                            this.hoverPreview.visible = true;
+                        }
+                    } catch (err) { console.error("Neural link failed for image."); }
+                },
+
+                hidePreview() {
+                    this.hoverPreview.visible = false;
+                    this.hoverPreview.url = '';
+                },
+
+                save() {
+                    localStorage.setItem('forge_vault', JSON.stringify(this.vault));
                 }
             }
         }
