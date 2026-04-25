@@ -88,7 +88,7 @@
                     </div>
                 </div>
                 <div class="z-10 flex flex-col items-end gap-1">
-                    <input type="text" x-model="searchQuery" @input.debounce.500ms="searchCards()" placeholder="QUERY DATABASE..." class="w-full max-w-[280px] bg-black/40 border border-cyan-400/20 p-2 text-xs font-mono focus:border-cyan-400 outline-none">
+                    <input type="text" x-model="searchQuery" placeholder="QUERY DATABASE..." class="w-full max-w-[280px] bg-black/40 border border-cyan-400/20 p-2 text-xs font-mono focus:border-cyan-400 outline-none">
                     <button @click="showImportModal = true" class="text-[9px] text-steel hover:text-cyan-400 uppercase tracking-tighter transition-colors">>> Access Bulk Uplink Terminal</button>
                 </div>
             </div>
@@ -159,7 +159,7 @@
 
                 async processImport() {
                     if(!this.activeDeck || !this.importRaw.trim()) return;
-                    this.isImporting = true; this.progress = 10;
+                    this.isImporting = true; this.progress = 5;
                     
                     const lines = this.importRaw.split('\n').filter(l => l.trim());
                     const parsedData = lines.map(line => {
@@ -168,25 +168,34 @@
                     }).slice(0, 125);
 
                     try {
+                        // We use the 'collection' endpoint but handle 400s by filtering unknown names
                         const response = await fetch('https://api.scryfall.com/cards/collection', {
                             method: 'POST', headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({ identifiers: parsedData.map(p => ({ name: p.name })) })
+                            body: JSON.stringify({ 
+                                identifiers: parsedData.map(p => ({ name: p.name })),
+                                // Use search logic if names aren't exact
+                                ignore_invalid: true 
+                            })
                         });
                         
+                        if (!response.ok) throw new Error("Sync Handshake Failed");
+
                         const result = await response.json();
                         this.progress = 60;
 
                         if (result.data) {
                             result.data.forEach((card, index) => {
                                 if (card && card.id) {
-                                    const originalRequest = parsedData[index];
-                                    let existing = this.activeDeck.cards.find(c => c.name === card.name);
+                                    // Scryfall results might not match index if some failed, 
+                                    // so we find the original qty by fuzzy matching names
+                                    const requestMatch = parsedData.find(p => p.name.toLowerCase() === card.name.toLowerCase()) || {qty: 1};
                                     
+                                    let existing = this.activeDeck.cards.find(c => c.name === card.name);
                                     if (existing) {
-                                        existing.qty += originalRequest.qty;
+                                        existing.qty += requestMatch.qty;
                                     } else {
                                         this.activeDeck.cards.push({
-                                            id: card.id, name: card.name, qty: originalRequest.qty,
+                                            id: card.id, name: card.name, qty: requestMatch.qty,
                                             isCommander: false, image_uris: card.image_uris,
                                             type_line: card.type_line, prices: card.prices
                                         });
@@ -201,9 +210,9 @@
                         }
                     } catch (err) {
                         console.error("Import Error:", err);
-                        this.notify("SYNC FAILED");
+                        this.notify("SYNC ERROR: CHECK NAMES");
                     } finally {
-                        setTimeout(() => { this.isImporting = false; this.progress = 0; }, 500);
+                        setTimeout(() => { this.isImporting = false; this.progress = 0; }, 800);
                     }
                 },
 
