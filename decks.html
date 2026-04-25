@@ -49,12 +49,12 @@
         .dragging { opacity: 0.4; border: 1px dashed var(--cyan); }
         .drag-over { border-top: 2px solid var(--cyan); }
 
-        /* Search Dropdown Styling */
+        /* FIXED SEARCH RESULTS (Prevents Clipping) */
         .search-results-container {
-            position: absolute; top: 100%; right: 0; width: 320px; 
-            background: rgba(17, 28, 30, 0.95); border: 1px solid rgba(34, 211, 238, 0.4);
-            z-index: 5000; margin-top: 5px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            backdrop-filter: blur(10px); max-height: 400px; overflow-y: auto;
+            position: fixed; 
+            background: rgba(17, 28, 30, 0.98); border: 1px solid rgba(34, 211, 238, 0.4);
+            z-index: 5000; margin-top: 5px; box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+            backdrop-filter: blur(15px); max-height: 400px; overflow-y: auto;
         }
     </style>
 </head>
@@ -106,10 +106,14 @@
                         <span>VALUE: <span class="text-white">$<span x-text="getDeckPrice()"></span></span></span>
                     </div>
                 </div>
-                <div class="z-10 flex flex-col items-end gap-2 relative">
+                <div class="z-10 flex flex-col items-end gap-2 relative" x-ref="searchWrapper">
                     <input type="text" x-model="searchQuery" @input.debounce.500ms="searchCards()" placeholder="QUERY DATABASE..." class="w-full max-w-[280px] bg-black/40 border border-cyan-400/20 p-2 text-xs font-mono focus:border-cyan-400 outline-none">
                     
-                    <div x-show="searchResults.length > 0 && searchQuery.length > 0" @click.away="searchResults = []" class="search-results-container">
+                    <div x-show="searchResults.length > 0 && searchQuery.length > 0" 
+                         @click.away="searchResults = []" 
+                         class="search-results-container"
+                         :style="`top: ${$refs.searchWrapper.getBoundingClientRect().bottom}px; left: ${$refs.searchWrapper.getBoundingClientRect().left}px; width: ${$refs.searchWrapper.offsetWidth}px;`"
+                         x-transition>
                         <template x-for="res in searchResults" :key="res.id">
                             <div @click="addCardToDeck(res)" class="p-2 border-b border-white/5 flex items-center gap-3 cursor-pointer hover:bg-cyan-400/10 group transition-all">
                                 <img :src="res.image_uris?.small" class="w-8 h-11 rounded-sm shadow-md">
