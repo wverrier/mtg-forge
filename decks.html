@@ -7,58 +7,47 @@
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         :root { --gunmetal: #111c1e; --dark: #1a2527; --cyan: #22d3ee; --steel: #8fa9b0; --warn: #eb5f7a; --ok: #4ade80; }
-        
-        /* CUSTOM HUD CURSOR (Sidebar Only) */
-        .sidebar-active { cursor: none !important; }
-        #custom-cursor {
-            width: 16px; height: 16px; border: 1px solid var(--cyan); border-radius: 50%;
-            position: fixed; pointer-events: none; z-index: 9999;
-            transition: transform 0.1s ease-out, background 0.2s;
-            transform: translate(-50%, -50%);
-            box-shadow: 0 0 8px rgba(34, 211, 238, 0.3);
-            display: none; /* Hidden by default */
-        }
-        .sidebar-active #custom-cursor { display: block; }
-        #custom-cursor::after {
-            content: ''; width: 2px; height: 2px; background: var(--cyan);
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            border-radius: 50%;
-        }
-        /* Subtle expansion on hover */
-        .cursor-hover #custom-cursor { transform: translate(-50%, -50%) scale(1.4); background: rgba(34, 211, 238, 0.15); }
 
         body { background: var(--gunmetal); color: #e8eef0; font-family: 'Rajdhani', sans-serif; overflow: hidden; }
         .panel { background: var(--dark); border: 1px solid rgba(34, 211, 238, 0.1); }
-        .btn-primary { border: 1px solid var(--cyan); color: var(--cyan); padding: 0.5rem; text-transform: uppercase; font-weight: 700; clip-path: polygon(0 0, 92% 0, 100% 25%, 100% 100%, 8% 100%, 0 75%); transition: 0.2s; }
+        .btn-primary { border: 1px solid var(--cyan); color: var(--cyan); padding: 0.5rem; text-transform: uppercase; font-weight: 700; clip-path: polygon(0 0, 92% 0, 100% 25%, 100% 100%, 8% 100%, 0 75%); transition: 0.2s; cursor: pointer; }
         .btn-primary:hover { background: var(--cyan); color: black; }
         
-        .card-preview-float { position: fixed; z-index: 3000; width: 240px; pointer-events: none; border-radius: 12px; border: 1px solid rgba(34, 211, 238, 0.3); }
+        .card-preview-float { position: fixed; z-index: 9000; width: 240px; pointer-events: none; border-radius: 12px; border: 1px solid rgba(34, 211, 238, 0.3); box-shadow: 0 0 20px rgba(0,0,0,0.8); }
         .category-header { font-family: 'Bebas Neue'; letter-spacing: 1px; color: var(--steel); border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 12px; padding-bottom: 2px; }
         .scroll-v { overflow-y: auto; height: calc(100vh - 280px); scrollbar-width: thin; scrollbar-color: var(--cyan) transparent; }
         .brand-blue { color: rgb(34, 211, 238); }
         
-        .hud-counter { 
-            font-family: 'monospace'; font-size: 8px; letter-spacing: 1px; 
-            color: rgba(143, 169, 176, 0.4); background: rgba(255, 255, 255, 0.03); 
-            padding: 4px 10px; border-radius: 2px;
-        }
+        .hud-counter { font-family: 'monospace'; font-size: 8px; letter-spacing: 1px; color: rgba(143, 169, 176, 0.4); background: rgba(255, 255, 255, 0.03); padding: 4px 10px; border-radius: 2px; }
         .hud-counter.deficit { background: rgba(235, 95, 122, 0.1); color: var(--warn); border: 1px solid rgba(235, 95, 122, 0.2); }
         .status-icon { font-size: 10px; width: 14px; font-weight: bold; }
-        .btn-cmdr { font-size: 8px; font-weight: 900; padding: 2px 4px; border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); }
+        .btn-cmdr { font-size: 8px; font-weight: 900; padding: 2px 4px; border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); transition: 0.2s; cursor: pointer; }
         .btn-cmdr.active { border-color: var(--cyan); color: var(--cyan); background: rgba(34, 211, 238, 0.1); }
 
         .dragging { opacity: 0.4; border: 1px dashed var(--cyan); }
         .drag-over { border-top: 2px solid var(--cyan); }
+
+        /* Search Dropdown UI */
+        .search-container { position: relative; }
+        .search-results { position: absolute; top: 100%; right: 0; width: 320px; background: #000; border: 1px solid var(--cyan); z-index: 5000; max-height: 300px; overflow-y: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
+
+        /* Commander Tag Visual - RESTORED */
+        .cmdr-banner { 
+            position: absolute; top: -8px; right: -8px; 
+            background: #facc15; color: #000; 
+            font-weight: 900; font-size: 8px; padding: 2px 8px; 
+            transform: rotate(5deg); border: 1px solid #000;
+            box-shadow: 2px 2px 0px var(--gunmetal);
+        }
     </style>
 </head>
-<body x-data="deckApp()" x-init="init()" @mousemove="moveCursor($event)" :class="{'sidebar-active': inSidebar, 'cursor-hover': isHovering}">
+<body x-data="deckApp()" x-init="init()" @mousemove="moveMouse($event)">
     
-    <div id="custom-cursor"></div>
-    <img x-show="hoverPreview.visible && viewMode === 'list'" :src="hoverPreview.url" class="card-preview-float shadow-2xl" :style="`left:${hoverPreview.x+20}px; top:${hoverPreview.y-120}px`" />
+    <img x-show="hoverPreview.visible && !isSearching" :src="hoverPreview.url" class="card-preview-float shadow-2xl" :style="`left:${hoverPreview.x+20}px; top:${hoverPreview.y-120}px`" />
 
     <header class="panel px-6 py-4 flex justify-between items-center border-b border-cyan-400/20">
         <div class="flex items-center gap-6">
-            <a href="index.html" class="text-3xl font-bold brand-blue" style="font-family: 'Bebas Neue'">FORGE // DECKS</a>
+            <a href="index.html" class="text-3xl font-bold brand-blue" style="font-family: 'Bebas Neue'">FORGE // TACTICAL</a>
             <nav class="flex gap-4 text-[10px] font-bold uppercase tracking-widest text-steel">
                 <a href="collection.html" class="hover:brand-blue transition">Vault</a>
                 <a href="import.html" class="hover:brand-blue transition">Uplink</a>
@@ -71,18 +60,16 @@
     </header>
 
     <main class="grid grid-cols-12 gap-4 p-4 h-[calc(100vh-80px)]">
-        <div class="col-span-2 panel p-4 flex flex-col" 
-             @mouseenter="inSidebar = true" 
-             @mouseleave="inSidebar = false; isHovering = false">
-            <button @click="createNewDeck()" @mouseenter="isHovering = true" @mouseleave="isHovering = false" class="w-full btn-primary text-xs mb-6">+ Initialise List</button>
+        <div class="col-span-2 panel p-4 flex flex-col">
+            <button @click="createNewDeck()" class="w-full btn-primary text-xs mb-6">+ Initialise List</button>
             <div class="flex-1 overflow-y-auto" @dragover.prevent @drop="handleDrop()">
                 <template x-for="(deck, index) in decks" :key="deck.id">
-                    <div class="group relative mb-2" draggable="true" @dragstart="handleDragStart(index)" @dragover.prevent="dragOverIndex = index" @dragleave="dragOverIndex = null" :class="{ 'dragging': dragSrcIndex === index, 'drag-over': dragOverIndex === index }">
-                        <div @click="activeDeck = deck" @mouseenter="isHovering = true" @mouseleave="isHovering = false" :class="activeDeck?.id === deck.id ? 'border-cyan-400 bg-cyan-400/5' : 'border-transparent opacity-60'" class="p-3 border-l-2 transition hover:opacity-100">
+                    <div class="group relative mb-2" draggable="true" @dragstart="dragSrcIndex = index" @dragover.prevent="dragOverIndex = index" @dragleave="dragOverIndex = null" :class="{ 'dragging': dragSrcIndex === index, 'drag-over': dragOverIndex === index }">
+                        <div @click="activeDeck = deck" :class="activeDeck?.id === deck.id ? 'border-cyan-400 bg-cyan-400/5' : 'border-transparent opacity-60'" class="p-3 border-l-2 transition hover:opacity-100 cursor-pointer">
                             <div x-text="deck.name" class="font-bold text-sm uppercase truncate pr-8"></div>
                             <div class="text-[9px] font-mono brand-blue" x-text="countAllCards(deck) + ' UNITS'"></div>
                         </div>
-                        <button @click.stop="deleteDeck(deck.id)" @mouseenter="isHovering = true" @mouseleave="isHovering = false" class="absolute top-4 right-2 text-[8px] font-black text-red-500 opacity-0 group-hover:opacity-100 transition-opacity hover:underline">PURGE</button>
+                        <button @click.stop="deleteDeck(deck.id)" class="absolute top-4 right-2 text-[8px] font-black text-red-500 opacity-0 group-hover:opacity-100 transition-opacity hover:underline">PURGE</button>
                     </div>
                 </template>
             </div>
@@ -99,71 +86,74 @@
                         <span>VALUE: <span class="text-white">$<span x-text="getDeckPrice()"></span></span></span>
                     </div>
                 </div>
-                <div class="z-10 flex flex-col items-end gap-2">
-                    <input type="text" x-model="searchQuery" @input.debounce.500ms="searchCards()" placeholder="QUERY DATABASE..." class="w-full max-w-[280px] bg-black/40 border border-cyan-400/20 p-2 text-xs font-mono focus:border-cyan-400 outline-none">
+                <div class="z-50 search-container flex flex-col items-end gap-1">
+                    <input type="text" x-model="searchQuery" 
+                           @input.debounce.500ms="searchCards()" 
+                           @focus="isSearching = true"
+                           placeholder="QUERY DATABASE..." 
+                           class="w-full max-w-[280px] bg-black/40 border border-cyan-400/20 p-2 text-xs font-mono focus:border-cyan-400 outline-none">
+                    
+                    <div x-show="searchResults.length > 0" @click.away="searchResults = []; isSearching = false" class="search-results">
+                        <template x-for="res in searchResults" :key="res.id">
+                            <div @click="addCardToDeck(res)" class="p-2 border-b border-white/5 hover:bg-cyan-400 hover:text-black cursor-pointer flex justify-between items-center group/item transition-colors">
+                                <span class="text-[10px] font-bold uppercase truncate" x-text="res.name"></span>
+                                <span class="text-[8px] opacity-60 font-mono" x-text="'$' + (res.prices?.usd || '0.00')"></span>
+                            </div>
+                        </template>
+                    </div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-12 gap-4 flex-1 overflow-hidden">
-                <div class="col-span-12 scroll-v pr-2">
-                    <template x-for="cat in categories" :key="cat">
-                        <div x-show="getCardsByCat(cat).length > 0" class="mb-8">
-                            <h3 class="category-header text-sm flex justify-between">
-                                <span x-text="cat"></span>
-                                <span class="opacity-40" x-text="getCardsByCat(cat).reduce((a, b) => a + b.qty, 0)"></span>
-                            </h3>
-                            
-                            <div x-show="viewMode === 'list'" class="grid grid-cols-1 gap-1">
-                                <template x-for="card in getCardsByCat(cat)" :key="card.id">
-                                    <div class="flex justify-between items-center py-1.5 hover:bg-white/[0.02] px-2 group rounded border-b border-white/[0.02]">
-                                        <div class="flex items-center gap-3 truncate">
-                                            <span class="status-icon" :class="getStatusColor(card)" x-text="getStatusIcon(card)"></span>
-                                            <div class="flex items-center gap-3">
-                                                <span @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()" x-text="card.name" class="text-xs font-bold truncate group-hover:brand-blue transition-colors"></span>
-                                                <button x-show="isCreature(card)" @click="setCommander(card)" class="btn-cmdr uppercase tracking-tighter" :class="card.isCommander ? 'active' : ''" x-text="card.isCommander ? 'CMDR ACTIVE' : 'SET CMDR'"></button>
-                                            </div>
-                                            <button @click="removeCompletely(card)" class="opacity-0 group-hover:opacity-100 transition-opacity text-[8px] bg-red-900/20 text-red-400 px-1 hover:bg-red-500 hover:text-white uppercase font-bold">Delete</button>
-                                        </div>
-                                        <div class="flex items-center gap-4">
-                                            <div class="hud-counter flex gap-2 items-center" :class="getUsageStats(card.name).avail < 0 ? 'deficit' : ''">
-                                                <span><span x-text="getUsageStats(card.name).deckCount"></span> DECKS</span>
-                                                <span class="opacity-20">|</span>
-                                                <span><span x-text="getUsageStats(card.name).avail"></span> AVAIL</span>
-                                            </div>
-                                            <div class="flex items-center bg-black/40 rounded border border-white/5">
-                                                <button @click="adjustQty(card, -1)" class="px-3 py-1 text-steel hover:brand-blue">-</button>
-                                                <span class="text-[10px] font-mono w-6 text-center border-x border-white/5" x-text="card.qty"></span>
-                                                <button @click="adjustQty(card, 1)" class="px-3 py-1 text-steel hover:brand-blue">+</button>
-                                            </div>
+            <div class="flex-1 overflow-hidden scroll-v pr-2">
+                <template x-for="cat in categories" :key="cat">
+                    <div x-show="getCardsByCat(cat).length > 0" class="mb-8 relative">
+                        <h3 class="category-header text-sm flex justify-between">
+                            <span x-text="cat"></span>
+                            <span class="opacity-40" x-text="getCardsByCat(cat).reduce((a, b) => a + b.qty, 0)"></span>
+                        </h3>
+                        
+                        <div x-show="viewMode === 'list'" class="grid grid-cols-1 gap-1">
+                            <template x-for="card in getCardsByCat(cat)" :key="card.id">
+                                <div class="flex justify-between items-center py-1.5 hover:bg-white/[0.02] px-2 group rounded border-b border-white/[0.02]">
+                                    <div class="flex items-center gap-3 truncate">
+                                        <span class="status-icon" :class="getStatusColor(card)" x-text="getStatusIcon(card)"></span>
+                                        <div class="flex items-center gap-3">
+                                            <span @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()" x-text="card.name" class="text-xs font-bold truncate group-hover:brand-blue transition-colors cursor-help"></span>
+                                            <button x-show="isCreature(card)" @click="setCommander(card)" class="btn-cmdr uppercase" :class="card.isCommander ? 'active' : ''" x-text="card.isCommander ? 'CMDR ACTIVE' : 'SET CMDR'"></button>
                                         </div>
                                     </div>
-                                </template>
-                            </div>
-
-                            <div x-show="viewMode === 'visual'" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
-                                <template x-for="card in getCardsByCat(cat)" :key="card.id">
-                                    <div class="relative group">
-                                        <img :src="card.image_uris?.normal" class="rounded-xl w-full border border-white/10 group-hover:border-cyan-400/50 transition-all duration-300 shadow-2xl group-hover:scale-105">
-                                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex flex-col justify-end p-3 gap-2">
-                                            <div class="flex justify-between items-center">
-                                                <span class="status-icon" :class="getStatusColor(card)" x-text="getStatusIcon(card)"></span>
-                                                <div class="hud-counter text-[7px]" :class="getUsageStats(card.name).avail < 0 ? 'deficit' : ''">
-                                                    <span x-text="getUsageStats(card.name).avail"></span> AVAIL
-                                                </div>
-                                            </div>
-                                            <div class="flex justify-center bg-black/60 rounded border border-white/10 overflow-hidden">
-                                                <button @click="adjustQty(card, -1)" class="flex-1 py-1 hover:bg-cyan-400 hover:text-black">-</button>
-                                                <span class="px-3 py-1 font-mono text-xs border-x border-white/10" x-text="card.qty"></span>
-                                                <button @click="adjustQty(card, 1)" class="flex-1 py-1 hover:bg-cyan-400 hover:text-black">+</button>
-                                            </div>
+                                    <div class="flex items-center gap-4">
+                                        <div class="hud-counter flex gap-2 items-center" :class="getUsageStats(card.name).avail < 0 ? 'deficit' : ''">
+                                            <span x-text="getUsageStats(card.name).deckCount"></span> DECKS | <span x-text="getUsageStats(card.name).avail"></span> AVAIL
                                         </div>
-                                        <div x-show="card.isCommander" class="absolute -top-2 -right-2 bg-yellow-400 text-black text-[8px] font-black px-2 py-1 rounded skew-x-[-10deg] shadow-lg">COMMANDER</div>
+                                        <div class="flex items-center bg-black/40 rounded border border-white/5">
+                                            <button @click="adjustQty(card, -1)" class="px-3 py-1 text-steel hover:brand-blue">-</button>
+                                            <span class="text-[10px] font-mono w-6 text-center" x-text="card.qty"></span>
+                                            <button @click="adjustQty(card, 1)" class="px-3 py-1 text-steel hover:brand-blue">+</button>
+                                        </div>
                                     </div>
-                                </template>
-                            </div>
+                                </div>
+                            </template>
                         </div>
-                    </template>
-                </div>
+
+                        <div x-show="viewMode === 'visual'" class="grid grid-cols-5 gap-6">
+                            <template x-for="card in getCardsByCat(cat)" :key="card.id">
+                                <div class="relative group aspect-[3/4]">
+                                    <div x-show="card.isCommander" class="cmdr-banner">COMMANDER</div>
+                                    <img :src="card.image_uris?.normal" class="w-full h-full object-cover rounded-xl border border-white/10 group-hover:border-cyan-400 transition-all">
+                                    <div class="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 flex flex-col justify-center items-center p-3 transition-opacity rounded-xl">
+                                        <div class="flex gap-2 mb-4">
+                                            <button @click="adjustQty(card, -1)" class="bg-white/10 px-2 rounded">-</button>
+                                            <span class="brand-blue font-bold font-mono" x-text="card.qty"></span>
+                                            <button @click="adjustQty(card, 1)" class="bg-white/10 px-2 rounded">+</button>
+                                        </div>
+                                        <button @click="removeCompletely(card)" class="text-[8px] bg-red-600 text-white px-2 py-1 uppercase font-black">Purge</button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
             </div>
         </div>
     </main>
@@ -176,19 +166,29 @@
                 activeDeck: null, searchQuery: '', searchResults: [], viewMode: 'list',
                 categories: ['Commander', 'Creature', 'Sorcery', 'Instant', 'Artifact', 'Enchantment', 'Planeswalker', 'Land'],
                 hoverPreview: { visible: false, url: '', x: 0, y: 0 },
-                dragSrcIndex: null, dragOverIndex: null, 
-                inSidebar: false, isHovering: false,
+                isSearching: false, dragSrcIndex: null, dragOverIndex: null,
 
                 init() { if(this.decks.length) this.activeDeck = this.decks[0]; },
+                save() { localStorage.setItem('decks', JSON.stringify(this.decks)); },
                 
-                moveCursor(e) {
-                    if(!this.inSidebar) return;
-                    const cursor = document.getElementById('custom-cursor');
-                    cursor.style.left = e.clientX + 'px';
-                    cursor.style.top = e.clientY + 'px';
+                async searchCards() {
+                    if(this.searchQuery.length < 3) { this.searchResults = []; return; }
+                    const res = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(this.searchQuery)}`);
+                    const data = await res.json();
+                    this.searchResults = data.data?.slice(0, 10) || [];
                 },
 
-                handleDragStart(index) { this.dragSrcIndex = index; },
+                addCardToDeck(card) {
+                    if(!this.activeDeck.cards) this.activeDeck.cards = [];
+                    let existing = this.activeDeck.cards.find(c => c.id === card.id);
+                    if(existing) existing.qty++;
+                    else this.activeDeck.cards.push({
+                        id: card.id, name: card.name, qty: 1, isCommander: false,
+                        image_uris: card.image_uris, type_line: card.type_line, prices: card.prices
+                    });
+                    this.save(); this.searchResults = []; this.searchQuery = ''; this.isSearching = false;
+                },
+
                 handleDrop() {
                     if (this.dragSrcIndex !== null && this.dragOverIndex !== null) {
                         const item = this.decks.splice(this.dragSrcIndex, 1)[0];
@@ -198,89 +198,35 @@
                     this.dragSrcIndex = null; this.dragOverIndex = null;
                 },
 
-                deleteDeck(id) {
-                    if(confirm("PERMANENTLY PURGE THIS DATASET?")) {
-                        this.decks = this.decks.filter(d => d.id !== id);
-                        if(this.activeDeck?.id === id) this.activeDeck = this.decks[0] || null;
-                        this.save();
-                    }
-                },
-
-                clean(n) {
-                    if(!n) return "";
-                    const basics = ['forest', 'island', 'swamp', 'mountain', 'plains'];
-                    let name = n.split('(')[0].split('[')[0].split(' // ')[0].replace(/[^\w\s]/gi, '').toLowerCase().trim();
-                    const b = basics.find(x => name.includes(x));
-                    return b ? b : name;
-                },
-
-                isCreature(card) { return card.type_line?.toLowerCase().includes('creature'); },
-
+                clean(n) { return n ? n.split(' // ')[0].toLowerCase().trim() : ""; },
                 getUsageStats(name) {
                     const target = this.clean(name);
-                    const total = this.vault.reduce((s, v) => this.clean(v.name) === target ? s + v.qty : s, 0);
-                    let totalUsed = 0, deckCount = 0;
+                    const own = this.vault.reduce((s, v) => this.clean(v.name) === target ? s + v.qty : s, 0);
+                    let used = 0, count = 0;
                     this.decks.forEach(d => {
                         const c = d.cards.find(x => this.clean(x.name) === target);
-                        if (c) { deckCount++; totalUsed += c.qty; }
+                        if(c) { count++; used += c.qty; }
                     });
-                    return { totalOwned: total, deckCount, avail: total - totalUsed };
+                    return { totalOwned: own, deckCount: count, avail: own - used };
                 },
 
-                getStatusIcon(card) {
-                    const s = this.getUsageStats(card.name);
-                    return s.totalOwned === 0 ? '✕' : (s.avail < 0 ? '!' : '✓');
-                },
-
-                getStatusColor(card) {
-                    const s = this.getUsageStats(card.name);
-                    return s.totalOwned === 0 ? 'text-red-500' : (s.avail < 0 ? 'text-cyan-400' : 'text-green-400');
-                },
-
-                setCommander(card) {
-                    if (!this.isCreature(card)) return;
-                    this.activeDeck.cards.forEach(c => c.isCommander = false);
-                    card.isCommander = true; this.save();
-                },
-
-                getDeckPrice() {
-                    if(!this.activeDeck?.cards) return '0.00';
-                    return this.activeDeck.cards.reduce((s, c) => s + (parseFloat(c.prices?.usd || 0) * c.qty), 0).toFixed(2);
-                },
-
-                async searchCards() {
-                    if(this.searchQuery.length < 2) return;
-                    const res = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(this.searchQuery)}`);
-                    const d = await res.json();
-                    this.searchResults = d.data?.slice(0, 10) || [];
-                },
-
-                adjustQty(card, v) {
-                    card.qty += v; if(card.qty <= 0) this.removeCompletely(card);
-                    this.save();
-                },
-
-                removeCompletely(c) { this.activeDeck.cards = this.activeDeck.cards.filter(x => x.id !== c.id); this.save(); },
-
+                getStatusIcon(c) { const s = this.getUsageStats(c.name); return s.totalOwned === 0 ? '✕' : (s.avail < 0 ? '!' : '✓'); },
+                getStatusColor(c) { const s = this.getUsageStats(c.name); return s.totalOwned === 0 ? 'text-red-500' : (s.avail < 0 ? 'text-cyan-400' : 'text-green-400'); },
+                isCreature(c) { return c.type_line?.toLowerCase().includes('creature'); },
+                setCommander(c) { this.activeDeck.cards.forEach(x => x.isCommander = false); c.isCommander = true; this.save(); },
                 getCardsByCat(cat) {
                     if(!this.activeDeck?.cards) return [];
-                    return this.activeDeck.cards.filter(c => {
-                        if(cat === 'Commander') return c.isCommander;
-                        return !c.isCommander && c.type_line.includes(cat);
-                    });
+                    return this.activeDeck.cards.filter(c => cat === 'Commander' ? c.isCommander : (!c.isCommander && c.type_line.includes(cat)));
                 },
-
-                countAllCards(d) { return d?.cards?.reduce((s, c) => s + c.qty, 0) || 0; },
-                save() { localStorage.setItem('decks', JSON.stringify(this.decks)); },
+                moveMouse(e) { this.hoverPreview.x = e.clientX; this.hoverPreview.y = e.clientY; },
                 showPreview(e, url) { this.hoverPreview = { visible: true, url, x: e.clientX, y: e.clientY }; },
                 hidePreview() { this.hoverPreview.visible = false; },
-                createNewDeck() {
-                    const n = prompt("Terminal ID:");
-                    if(n) { 
-                        const d = {id: Date.now(), name: n, cards: [], sideboard: []};
-                        this.decks.push(d); this.activeDeck = d; this.save(); 
-                    }
-                }
+                countAllCards(d) { return d?.cards?.reduce((s, c) => s + c.qty, 0) || 0; },
+                getDeckPrice() { return this.activeDeck?.cards?.reduce((s, c) => s + (parseFloat(c.prices?.usd || 0)*c.qty), 0).toFixed(2) || '0.00'; },
+                adjustQty(card, v) { card.qty += v; if(card.qty <= 0) this.removeCompletely(card); this.save(); },
+                removeCompletely(c) { this.activeDeck.cards = this.activeDeck.cards.filter(x => x.id !== c.id); this.save(); },
+                deleteDeck(id) { if(confirm("PURGE?")) { this.decks = this.decks.filter(d => d.id !== id); if(this.activeDeck?.id === id) this.activeDeck = this.decks[0] || null; this.save(); } },
+                createNewDeck() { const n = prompt("ID:"); if(n) { const d = {id: Date.now(), name: n, cards: []}; this.decks.push(d); this.activeDeck = d; this.save(); } }
             }
         }
     </script>
