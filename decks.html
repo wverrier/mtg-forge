@@ -45,6 +45,12 @@
                 <a href="import.html" class="hover:brand-blue transition">Uplink</a>
             </nav>
         </div>
+        <div class="flex gap-6 text-[9px] font-mono uppercase text-steel">
+            <span><span class="text-green-400 mr-1">✓</span> Owned</span>
+            <span><span class="text-cyan-400 mr-1">⧉</span> Shared</span>
+            <span><span class="text-yellow-400 mr-1">!</span> Short</span>
+            <span><span class="text-red-500 mr-1">✕</span> Null</span>
+        </div>
         <div class="flex gap-2">
             <button @click="viewMode = 'list'" :class="viewMode === 'list' ? 'bg-cyan-400 text-black' : 'bg-white/5'" class="px-3 py-1 text-[10px] font-bold uppercase">List</button>
             <button @click="viewMode = 'visual'" :class="viewMode === 'visual' ? 'bg-cyan-400 text-black' : 'bg-white/5'" class="px-3 py-1 text-[10px] font-bold uppercase">Visual</button>
@@ -109,6 +115,7 @@
                                     <div class="flex justify-between items-center py-1 hover:bg-white/5 px-2 group rounded relative">
                                         <div class="flex items-center gap-2 truncate">
                                             <span :class="getOwnershipStyle(card)" class="text-[10px] font-bold w-4" x-text="getOwnershipIcon(card)"></span>
+                                            
                                             <span @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()" x-text="card.name" class="text-xs font-bold cursor-help truncate"></span>
                                             
                                             <div class="flex gap-2 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -167,11 +174,14 @@
                 showImportModal: false, importRaw: '', isImporting: false,
                 categories: ['Commander', 'Creature', 'Sorcery', 'Instant', 'Artifact', 'Enchantment', 'Planeswalker', 'Land'],
                 hoverPreview: { visible: false, url: '', x: 0, y: 0 },
+                
                 init() { if(this.decks.length) this.activeDeck = this.decks[0]; },
                 
+                // Enhanced clean function to handle Altair [ACR] 268 style naming better
                 clean(n) {
                     if(!n) return "";
-                    return n.split('(')[0].split(' // ')[0].replace(/[^\w\s]/gi, '').toLowerCase().trim();
+                    // Removes text in brackets [], parentheses (), and double slashes // 
+                    return n.split('(')[0].split('[')[0].split(' // ')[0].replace(/[^\w\s]/gi, '').toLowerCase().trim();
                 },
 
                 async processImport() {
@@ -199,16 +209,27 @@
                 getOwnershipIcon(card) {
                     const targetName = this.clean(card.name);
                     const isBasic = ['forest', 'island', 'swamp', 'mountain', 'plains'].includes(targetName);
+                    
+                    // Check total physical qty in vault
                     const totalOwned = this.vault.reduce((sum, v) => this.clean(v.name) === targetName ? sum + v.qty : sum, 0);
-                    if(totalOwned === 0) return '✕';
+                    
+                    if(totalOwned === 0) return '✕'; // Not in vault
+
+                    // Check how many are used in OTHER decks
                     const usedInOthers = this.decks.filter(d => d.id !== this.activeDeck.id).reduce((sum, d) => {
                         const inD = d.cards.find(c => this.clean(c.name) === targetName);
                         return sum + (inD ? inD.qty : 0);
                     }, 0);
+
                     if(isBasic) return totalOwned > 0 ? '✓' : '✕';
-                    if(usedInOthers > 0 && (usedInOthers + card.qty) > totalOwned) return '⧉';
-                    if(card.qty > totalOwned) return '!';
-                    return '✓';
+                    
+                    // Logic: If (total needed for ALL decks) > (total physically owned)
+                    if(usedInOthers > 0 && (usedInOthers + card.qty) > totalOwned) return '⧉'; // Shared across decks
+                    
+                    // Logic: If (needed for THIS deck) > (total physically owned)
+                    if(card.qty > totalOwned) return '!'; // Short on copies for this deck
+                    
+                    return '✓'; // Good to go
                 },
 
                 getOwnershipStyle(card) {
@@ -233,6 +254,7 @@
                     const data = await res.json();
                     this.searchResults = data.data?.slice(0, 10) || [];
                 },
+
                 addCard(card) {
                     if(!this.activeDeck.cards) this.activeDeck.cards = [];
                     let existing = this.activeDeck.cards.find(c => c.name === card.name);
@@ -242,14 +264,17 @@
                     });
                     this.save(); this.searchResults = []; this.searchQuery = '';
                 },
+
                 toggleCommander(card) {
                     this.activeDeck.cards.forEach(c => c.isCommander = false);
                     card.isCommander = true; this.save();
                 },
+
                 removeCompletely(card) {
                     this.activeDeck.cards = this.activeDeck.cards.filter(c => c.id !== card.id);
                     this.save();
                 },
+
                 getCardsByCat(cat) {
                     if(!this.activeDeck || !this.activeDeck.cards) return [];
                     return this.activeDeck.cards.filter(c => {
@@ -258,21 +283,25 @@
                         return c.type_line.includes(cat);
                     });
                 },
+
                 deleteDeck(id) {
                     if(confirm("PURGE DATA?")) {
                         this.decks = this.decks.filter(d => d.id !== id);
                         this.activeDeck = this.decks[0] || null; this.save();
                     }
                 },
+
                 adjustQty(card, val) {
                     card.qty += val;
                     if(card.qty <= 0) this.removeCompletely(card);
                     this.save();
                 },
+
                 countAllCards(deck) { return deck?.cards?.reduce((s, c) => s + c.qty, 0) || 0; },
                 save() { localStorage.setItem('decks', JSON.stringify(this.decks)); },
                 showPreview(e, url) { this.hoverPreview = { visible: true, url, x: e.clientX, y: e.clientY }; },
                 hidePreview() { this.hoverPreview.visible = false; },
+                
                 createNewDeck() {
                     const name = prompt("Terminal ID:");
                     if(name) { 
