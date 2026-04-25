@@ -10,10 +10,8 @@
         body { background: var(--gunmetal); color: #e8eef0; font-family: 'Rajdhani', sans-serif; overflow: hidden; }
         .panel { background: var(--dark); border: 1px solid rgba(34, 211, 238, 0.1); }
         .brand-blue { color: rgb(34, 211, 238); }
-        .scroll-v { overflow-y: auto; height: calc(100vh - 180px); scrollbar-width: thin; scrollbar-color: var(--cyan) transparent; }
-        
-        /* Status Indicators */
-        .indicator { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .scroll-v { overflow-y: auto; height: calc(100vh - 120px); scrollbar-width: thin; scrollbar-color: var(--cyan) transparent; }
+        .indicator { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 8px; }
         .ind-synced { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
         .ind-shared { background: var(--orange); box-shadow: 0 0 8px var(--orange); }
         .ind-missing { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
@@ -29,57 +27,77 @@
                 <a href="import.html" class="hover:brand-blue transition">Uplink</a>
             </nav>
         </div>
-    </header>
-
-    <main class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="panel p-6 scroll-v">
-            <h2 class="text-xl font-bold brand-blue mb-4 uppercase italic">Active Strategy Units</h2>
-            <div class="flex flex-col gap-2">
-                <template x-for="deck in decks" :key="deck.id">
-                    <div @click="selectedDeck = deck" 
-                         :class="selectedDeck?.id === deck.id ? 'border-cyan-400 bg-cyan-400/5' : 'border-white/5'"
-                         class="p-4 border cursor-pointer hover:border-cyan-400/50 transition flex justify-between items-center">
-                        <div>
-                            <p class="font-bold uppercase text-sm" x-text="deck.name"></p>
-                            <p class="text-[10px] text-steel" x-text="deck.cards.length + ' Cards'"></p>
-                        </div>
-                        <div class="text-cyan-400 text-xs font-mono">>></div>
-                    </div>
-                </template>
+        <div class="flex items-center gap-4">
+            <input type="text" x-model="searchQuery" placeholder="SEARCH PROJECTS..." class="bg-black/40 border border-white/5 p-2 text-[10px] font-mono outline-none focus:border-cyan-400 w-48">
+            <div class="text-[10px] font-mono text-steel uppercase tracking-tighter">
+                ACTIVE STRATEGIES: <span class="brand-blue text-xs" x-text="decks.length"></span>
             </div>
         </div>
+    </header>
 
-        <div class="panel p-6 scroll-v">
-            <template x-if="selectedDeck">
-                <div>
-                    <div class="flex justify-between items-start mb-6">
-                        <h2 class="text-2xl font-bold brand-blue uppercase italic" x-text="selectedDeck.name"></h2>
-                        <div class="flex gap-4 text-[9px] font-mono uppercase text-steel">
-                            <span><i class="indicator ind-synced mr-1"></i> Ready</span>
-                            <span><i class="indicator ind-shared mr-1"></i> Shared</span>
-                            <span><i class="indicator ind-missing mr-1"></i> Null</span>
+    <main class="p-6 grid grid-cols-12 gap-6 h-[calc(100vh-120px)]">
+        
+        <div class="col-span-4 flex flex-col gap-4 scroll-v pr-2">
+            <template x-for="deck in filteredDecks" :key="deck.id">
+                <div @click="selectedDeck = deck" 
+                     :class="selectedDeck?.id === deck.id ? 'border-cyan-400 bg-cyan-400/5' : 'border-white/5'"
+                     class="panel p-4 cursor-pointer hover:border-cyan-400/50 transition relative group">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h3 class="font-bold uppercase text-sm brand-blue" x-text="deck.name"></h3>
+                            <p class="text-[9px] text-steel tracking-[0.2em]" x-text="deck.cards.length + ' UNITS DETECTED'"></p>
                         </div>
-                    </div>
-
-                    <div class="flex flex-col gap-1">
-                        <template x-for="card in selectedDeck.cards" :key="card.name">
-                            <div class="flex justify-between items-center p-2 bg-black/20 border border-white/5 text-xs">
-                                <div class="flex items-center gap-3">
-                                    <i :class="getStatusClass(card.name)" class="indicator"></i>
-                                    <span class="font-bold uppercase" x-text="card.name"></span>
-                                </div>
-                                <div class="flex items-center gap-4 font-mono text-[10px]">
-                                    <span class="text-steel">VLT: <span class="text-white" x-text="getVaultQty(card.name)"></span></span>
-                                    <span class="text-steel">QTY: <span class="brand-blue" x-text="card.qty || 1"></span></span>
-                                </div>
-                            </div>
-                        </template>
+                        <div class="opacity-0 group-hover:opacity-100 transition text-cyan-400 font-mono text-xs">>></div>
                     </div>
                 </div>
             </template>
+        </div>
+
+        <div class="col-span-8 panel p-8 flex flex-col relative overflow-hidden">
+            <template x-if="selectedDeck">
+                <div class="flex flex-col h-full">
+                    <div class="flex justify-between items-start mb-8 border-b border-white/5 pb-4">
+                        <div>
+                            <h2 class="text-4xl font-bold brand-blue italic uppercase leading-none" x-text="selectedDeck.name"></h2>
+                            <div class="flex gap-4 mt-3 text-[9px] font-mono uppercase text-steel">
+                                <span><i class="indicator ind-synced"></i> Synced</span>
+                                <span><i class="indicator ind-shared"></i> Shared (Vault Depleted)</span>
+                                <span><i class="indicator ind-missing"></i> Null (Not in Vault)</span>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[10px] text-steel uppercase">Physical Count</p>
+                            <p class="text-2xl font-bold brand-blue" x-text="selectedDeck.cards.reduce((s,c) => s + (c.qty || 1), 0)"></p>
+                        </div>
+                    </div>
+
+                    <div class="scroll-v pr-4">
+                        <div class="grid grid-cols-1 gap-1">
+                            <template x-for="card in selectedDeck.cards" :key="card.name">
+                                <div class="flex justify-between items-center p-3 bg-black/20 border border-white/5 hover:border-cyan-400/20 transition-colors">
+                                    <div class="flex items-center">
+                                        <i :class="getStatusClass(card.name)" class="indicator"></i>
+                                        <span class="text-xs font-bold uppercase tracking-wide" x-text="card.name"></span>
+                                    </div>
+                                    <div class="flex gap-6 items-center font-mono text-[10px]">
+                                        <div class="text-steel">
+                                            VAULT: <span :class="getVaultQty(card.name) > 0 ? 'text-white' : 'text-red-500'" x-text="getVaultQty(card.name)"></span>
+                                        </div>
+                                        <div class="text-steel">
+                                            LOAD: <span class="brand-blue" x-text="card.qty || 1"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
             <template x-if="!selectedDeck">
-                <div class="h-full flex items-center justify-center opacity-20">
-                    <p class="text-xl italic font-bold uppercase">Select Project to Inspect</p>
+                <div class="h-full flex flex-col items-center justify-center opacity-10">
+                    <p class="text-4xl font-bold italic uppercase">Awaiting Strategy Selection</p>
+                    <p class="text-xs tracking-[0.5em] mt-2">Select a deck unit from the left panel</p>
                 </div>
             </template>
         </div>
@@ -91,13 +109,20 @@
                 vault: JSON.parse(localStorage.getItem('forge_vault') || '[]'),
                 decks: JSON.parse(localStorage.getItem('forge_decks') || '[]'),
                 selectedDeck: null,
+                searchQuery: '',
 
                 init() {
                     if (this.decks.length > 0) this.selectedDeck = this.decks[0];
                 },
 
-                // CLEAN NAME MATCHING (Solves the Altair / Showcase name mismatch)
+                get filteredDecks() {
+                    if (!this.searchQuery) return this.decks;
+                    return this.decks.filter(d => d.name.toLowerCase().includes(this.searchQuery.toLowerCase()));
+                },
+
+                // Fix for Altaïr and other variations: matches the base name before the parenthesis
                 getCleanName(name) {
+                    if (!name) return "";
                     return name.split('(')[0].trim().toLowerCase();
                 },
 
@@ -113,7 +138,7 @@
                     
                     if (vQty === 0) return 'ind-missing';
 
-                    // Calculate total usage across ALL decks for "Shared" status
+                    // Calculate usage across ALL decks
                     let totalUsed = 0;
                     this.decks.forEach(d => {
                         const found = d.cards.find(c => this.getCleanName(c.name) === clean);
