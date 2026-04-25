@@ -25,6 +25,10 @@
         .status-icon { font-size: 10px; width: 14px; display: inline-block; text-align: center; font-weight: bold; }
         .btn-cmdr { font-size: 8px; font-weight: 900; padding: 2px 4px; border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); transition: 0.2s; }
         .btn-cmdr.active { border-color: var(--cyan); color: var(--cyan); background: rgba(34, 211, 238, 0.1); }
+
+        /* Drag & Drop Visuals */
+        .dragging { opacity: 0.4; border: 1px dashed var(--cyan); }
+        .drag-over { border-top: 2px solid var(--cyan); }
     </style>
 </head>
 <body x-data="deckApp()" x-init="init()">
@@ -48,13 +52,26 @@
     <main class="grid grid-cols-12 gap-4 p-4 h-[calc(100vh-80px)]">
         <div class="col-span-2 panel p-4 flex flex-col">
             <button @click="createNewDeck()" class="w-full btn-primary text-xs mb-6">+ Initialise List</button>
-            <div class="flex-1 overflow-y-auto">
-                <template x-for="deck in decks" :key="deck.id">
-                    <div class="group relative mb-2">
-                        <div @click="activeDeck = deck" :class="activeDeck?.id === deck.id ? 'border-cyan-400 bg-cyan-400/5' : 'border-transparent opacity-60'" class="p-3 border-l-2 cursor-pointer transition hover:opacity-100">
-                            <div x-text="deck.name" class="font-bold text-sm uppercase truncate"></div>
+            <div class="flex-1 overflow-y-auto" @dragover.prevent @drop="handleDrop()">
+                <template x-for="(deck, index) in decks" :key="deck.id">
+                    <div class="group relative mb-2" 
+                         draggable="true"
+                         @dragstart="handleDragStart(index)"
+                         @dragover.prevent="dragOverIndex = index"
+                         @dragleave="dragOverIndex = null"
+                         :class="{ 'dragging': dragSrcIndex === index, 'drag-over': dragOverIndex === index }">
+                        
+                        <div @click="activeDeck = deck" 
+                             :class="activeDeck?.id === deck.id ? 'border-cyan-400 bg-cyan-400/5' : 'border-transparent opacity-60'" 
+                             class="p-3 border-l-2 cursor-move transition hover:opacity-100">
+                            <div x-text="deck.name" class="font-bold text-sm uppercase truncate pr-8"></div>
                             <div class="text-[9px] font-mono brand-blue" x-text="countAllCards(deck) + ' UNITS'"></div>
                         </div>
+
+                        <button @click.stop="deleteDeck(deck.id)" 
+                                class="absolute top-4 right-2 text-[8px] font-black text-red-500 opacity-0 group-hover:opacity-100 transition-opacity hover:underline">
+                            PURGE
+                        </button>
                     </div>
                 </template>
             </div>
@@ -89,36 +106,20 @@
                                 <template x-for="card in getCardsByCat(cat)" :key="card.id">
                                     <div class="flex justify-between items-center py-1.5 hover:bg-white/[0.02] px-2 group rounded border-b border-white/[0.02]">
                                         <div class="flex items-center gap-3 truncate">
-                                            <span class="status-icon"
-                                                  :class="getStatusColor(card)"
-                                                  x-text="getStatusIcon(card)">
-                                            </span>
-
+                                            <span class="status-icon" :class="getStatusColor(card)" x-text="getStatusIcon(card)"></span>
                                             <div class="flex items-center gap-3">
-                                                <span @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()" 
-                                                      x-text="card.name" 
-                                                      class="text-xs font-bold cursor-help truncate group-hover:brand-blue transition-colors">
-                                                </span>
-
-                                                <button x-show="isCreature(card)" 
-                                                        @click="setCommander(card)" 
-                                                        class="btn-cmdr uppercase tracking-tighter"
-                                                        :class="card.isCommander ? 'active' : ''"
-                                                        x-text="card.isCommander ? 'CMDR ACTIVE' : 'SET CMDR'">
-                                                </button>
+                                                <span @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()" x-text="card.name" class="text-xs font-bold cursor-help truncate group-hover:brand-blue transition-colors"></span>
+                                                <button x-show="isCreature(card)" @click="setCommander(card)" class="btn-cmdr uppercase tracking-tighter" :class="card.isCommander ? 'active' : ''" x-text="card.isCommander ? 'CMDR ACTIVE' : 'SET CMDR'"></button>
                                             </div>
-                                            
                                             <button @click="removeCompletely(card)" class="opacity-0 group-hover:opacity-100 transition-opacity text-[8px] bg-red-900/20 text-red-400 px-1 hover:bg-red-500 hover:text-white uppercase font-bold">Delete</button>
                                         </div>
                                         
                                         <div class="flex items-center gap-4">
-                                            <div class="hud-counter flex gap-2 items-center" 
-                                                 :class="getUsageStats(card.name).avail < 0 ? 'deficit' : ''">
+                                            <div class="hud-counter flex gap-2 items-center" :class="getUsageStats(card.name).avail < 0 ? 'deficit' : ''">
                                                 <span><span class="opacity-100" x-text="getUsageStats(card.name).deckCount"></span> DECKS</span>
                                                 <span class="opacity-20">|</span>
                                                 <span><span class="opacity-100" x-text="getUsageStats(card.name).avail"></span> AVAIL</span>
                                             </div>
-
                                             <div class="flex items-center bg-black/40 rounded border border-white/5">
                                                 <button @click="adjustQty(card, -1)" class="px-3 py-1 text-steel hover:brand-blue transition">-</button>
                                                 <span class="text-[10px] font-mono w-6 text-center border-x border-white/5" x-text="card.qty"></span>
@@ -143,35 +144,49 @@
                 activeDeck: null, searchQuery: '', searchResults: [], viewMode: 'list',
                 categories: ['Commander', 'Creature', 'Sorcery', 'Instant', 'Artifact', 'Enchantment', 'Planeswalker', 'Land'],
                 hoverPreview: { visible: false, url: '', x: 0, y: 0 },
+                
+                // Drag & Drop State
+                dragSrcIndex: null,
+                dragOverIndex: null,
+
                 init() { if(this.decks.length) this.activeDeck = this.decks[0]; },
                 
+                handleDragStart(index) { this.dragSrcIndex = index; },
+                handleDrop() {
+                    if (this.dragSrcIndex !== null && this.dragOverIndex !== null) {
+                        const item = this.decks.splice(this.dragSrcIndex, 1)[0];
+                        this.decks.splice(this.dragOverIndex, 0, item);
+                        this.save();
+                    }
+                    this.dragSrcIndex = null;
+                    this.dragOverIndex = null;
+                },
+
+                deleteDeck(id) {
+                    if(confirm("PERMANENTLY PURGE THIS DATASET?")) {
+                        this.decks = this.decks.filter(d => d.id !== id);
+                        if(this.activeDeck?.id === id) this.activeDeck = this.decks[0] || null;
+                        this.save();
+                    }
+                },
+
                 clean(n) {
                     if(!n) return "";
-                    // Specifically clean basic land names for grouping
                     const basicLands = ['forest', 'island', 'swamp', 'mountain', 'plains'];
                     let name = n.split('(')[0].split('[')[0].split(' // ')[0].replace(/[^\w\s]/gi, '').toLowerCase().trim();
                     const basic = basicLands.find(b => name.includes(b));
                     return basic ? basic : name;
                 },
 
-                isCreature(card) {
-                    return card.type_line && card.type_line.toLowerCase().includes('creature');
-                },
+                isCreature(card) { return card.type_line && card.type_line.toLowerCase().includes('creature'); },
 
                 getUsageStats(name) {
                     const targetName = this.clean(name);
-                    // Aggregated Total Owned (all printings of same name)
                     const totalOwned = this.vault.reduce((sum, v) => this.clean(v.name) === targetName ? sum + v.qty : sum, 0);
-                    
-                    let deckCount = 0;
-                    let totalUsedAcrossDecks = 0;
-                    
+                    let deckCount = 0, totalUsedAcrossDecks = 0;
                     this.decks.forEach(d => {
                         const inDeck = d.cards.find(c => this.clean(c.name) === targetName);
-                        if (inDeck) { 
-                            deckCount++; 
-                            totalUsedAcrossDecks += inDeck.qty; 
-                        }
+                        if (inDeck) { deckCount++; totalUsedAcrossDecks += inDeck.qty; }
                     });
                     return { totalOwned, deckCount, avail: totalOwned - totalUsedAcrossDecks };
                 },
@@ -191,13 +206,8 @@
                 },
 
                 setCommander(card) {
-                    // Logic: Creatures only, replace existing
                     if (!this.isCreature(card)) return;
-                    
-                    this.activeDeck.cards.forEach(c => {
-                        if (c.isCommander) c.isCommander = false;
-                    });
-                    
+                    this.activeDeck.cards.forEach(c => { if (c.isCommander) c.isCommander = false; });
                     card.isCommander = true;
                     this.save();
                 },
