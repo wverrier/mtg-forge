@@ -7,7 +7,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         :root { --gunmetal: #111c1e; --dark: #1a2527; --cyan: #22d3ee; --steel: #8fa9b0; --warn: #eb5f7a; --ok: #4ade80; }
-        
         .sidebar-active { cursor: none !important; }
         #custom-cursor {
             width: 16px; height: 16px; border: 1px solid var(--cyan); border-radius: 50%;
@@ -28,19 +27,14 @@
         
         .scroll-v { overflow-y: auto; height: calc(100vh - 280px); scrollbar-width: thin; scrollbar-color: var(--cyan) transparent; }
         .brand-blue { color: rgb(34, 211, 238); }
-        
         .progress-bar { height: 2px; background: var(--cyan); transition: width 0.3s; box-shadow: 0 0 10px var(--cyan); }
         .toast { position: fixed; bottom: 20px; right: 20px; background: #000; border-left: 4px solid var(--cyan); padding: 12px 24px; font-family: monospace; z-index: 5000; font-size: 10px; letter-spacing: 1px; }
 
         .hud-counter { font-family: 'monospace'; font-size: 8px; letter-spacing: 1px; color: rgba(143, 169, 176, 0.4); background: rgba(255, 255, 255, 0.03); padding: 4px 10px; border-radius: 2px; }
-        .hud-counter.deficit { background: rgba(235, 95, 122, 0.1); color: var(--warn); border: 1px solid rgba(235, 95, 122, 0.2); }
         .status-icon { font-size: 10px; width: 14px; font-weight: bold; }
         .btn-cmdr { font-size: 8px; font-weight: 900; padding: 2px 4px; border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); cursor: pointer;}
         .btn-cmdr.active { border-color: var(--cyan); color: var(--cyan); background: rgba(34, 211, 238, 0.1); }
-        
         .category-header { font-family: 'Bebas Neue'; letter-spacing: 1px; color: var(--steel); border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 12px; padding-bottom: 2px; }
-        .dragging { opacity: 0.4; border: 1px dashed var(--cyan); }
-        .drag-over { border-top: 2px solid var(--cyan); }
     </style>
 </head>
 <body x-data="deckApp()" x-init="init()" @mousemove="moveCursor($event)" :class="{'sidebar-active': inSidebar, 'cursor-hover': isHovering}">
@@ -62,22 +56,21 @@
         </div>
     </header>
 
-    <div x-show="isImporting" class="w-full bg-white/5 h-[2px]">
+    <div x-show="isImporting" class="w-full bg-white/5 h-[2px] fixed top-[72px] z-50">
         <div class="progress-bar" :style="`width: ${progress}%`"></div>
     </div>
 
     <main class="grid grid-cols-12 gap-4 p-4 h-[calc(100vh-80px)]">
         <div class="col-span-2 panel p-4 flex flex-col" @mouseenter="inSidebar = true" @mouseleave="inSidebar = false; isHovering = false">
-            <button @click="createNewDeck()" @mouseenter="isHovering = true" @mouseleave="isHovering = false" class="w-full btn-primary text-xs mb-6">+ Initialise List</button>
-            
-            <div class="flex-1 overflow-y-auto" @dragover.prevent @drop="handleDrop()">
+            <button @click="createNewDeck()" class="w-full btn-primary text-xs mb-6">+ Initialise List</button>
+            <div class="flex-1 overflow-y-auto">
                 <template x-for="(deck, index) in decks" :key="deck.id">
-                    <div class="group relative mb-2" draggable="true" @dragstart="handleDragStart(index)" @dragover.prevent="dragOverIndex = index" @dragleave="dragOverIndex = null" :class="{ 'dragging': dragSrcIndex === index, 'drag-over': dragOverIndex === index }">
+                    <div class="group relative mb-2">
                         <div @click="activeDeck = deck" @mouseenter="isHovering = true" @mouseleave="isHovering = false" :class="activeDeck?.id === deck.id ? 'border-cyan-400 bg-cyan-400/5' : 'border-transparent opacity-60'" class="p-3 border-l-2 transition hover:opacity-100">
                             <div x-text="deck.name" class="font-bold text-sm uppercase truncate pr-8"></div>
                             <div class="text-[9px] font-mono brand-blue" x-text="countAllCards(deck) + ' UNITS'"></div>
                         </div>
-                        <button @click.stop="deleteDeck(deck.id)" @mouseenter="isHovering = true" @mouseleave="isHovering = false" class="absolute top-4 right-2 text-[8px] font-black text-red-500 opacity-0 group-hover:opacity-100 transition-opacity hover:underline">PURGE</button>
+                        <button @click.stop="deleteDeck(deck.id)" class="absolute top-4 right-2 text-[8px] font-black text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">PURGE</button>
                     </div>
                 </template>
             </div>
@@ -108,8 +101,7 @@
                                 <span x-text="cat"></span>
                                 <span class="opacity-40" x-text="getCardsByCat(cat).reduce((a, b) => a + b.qty, 0)"></span>
                             </h3>
-                            
-                            <div x-show="viewMode === 'list'" class="grid grid-cols-1 gap-1">
+                            <div class="grid grid-cols-1 gap-1">
                                 <template x-for="card in getCardsByCat(cat)" :key="card.id">
                                     <div class="flex justify-between items-center py-1.5 hover:bg-white/[0.02] px-2 group rounded border-b border-white/[0.02]">
                                         <div class="flex items-center gap-3 truncate">
@@ -133,8 +125,7 @@
                                     </div>
                                 </template>
                             </div>
-                            
-                            </div>
+                        </div>
                     </template>
                 </div>
             </div>
@@ -144,8 +135,7 @@
     <div x-show="showImportModal" class="fixed inset-0 z-[6000] flex items-center justify-center p-6 bg-black/95 backdrop-blur-md" x-transition>
         <div class="panel w-full max-w-xl p-8 border-cyan-400/40">
             <h3 class="text-2xl font-bold brand-blue mb-2" style="font-family: 'Bebas Neue'">LIST UPLINK</h3>
-            <p class="text-[10px] text-steel mb-4 uppercase">Formats: "1 Sol Ring" or "Sol Ring". Max 125 units.</p>
-            <textarea x-model="importRaw" placeholder="Enter card list here..." class="w-full h-64 bg-black/50 border border-white/10 p-4 font-mono text-xs focus:border-cyan-400 outline-none mb-6"></textarea>
+            <textarea x-model="importRaw" placeholder="1 Sol Ring&#10;1 Arcane Signet" class="w-full h-64 bg-black/50 border border-white/10 p-4 font-mono text-xs focus:border-cyan-400 outline-none mb-6"></textarea>
             <div class="flex gap-4">
                 <button @click="showImportModal = false" class="flex-1 py-2 text-xs uppercase border border-white/10 hover:bg-white/5">Abort</button>
                 <button @click="processImport()" :disabled="isImporting" class="flex-1 btn-primary" x-text="isImporting ? 'SYNCING...' : 'INITIATE SYNC'"></button>
@@ -168,52 +158,59 @@
                 save() { localStorage.setItem('decks', JSON.stringify(this.decks)); },
 
                 async processImport() {
-                    if(!this.activeDeck) return;
-                    this.isImporting = true; this.progress = 5;
+                    if(!this.activeDeck || !this.importRaw.trim()) return;
+                    this.isImporting = true; this.progress = 10;
+                    
                     const lines = this.importRaw.split('\n').filter(l => l.trim());
-                    const parsed = lines.map(line => {
+                    const parsedData = lines.map(line => {
                         const m = line.match(/^(\d+)x?\s+(.+)/i);
                         return m ? { name: m[2].trim(), qty: parseInt(m[1]) } : { name: line.trim(), qty: 1 };
                     }).slice(0, 125);
 
                     try {
-                        const res = await fetch('https://api.scryfall.com/cards/collection', {
+                        const response = await fetch('https://api.scryfall.com/cards/collection', {
                             method: 'POST', headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({ identifiers: parsed.map(p => ({ name: p.name })) })
+                            body: JSON.stringify({ identifiers: parsedData.map(p => ({ name: p.name })) })
                         });
-                        const data = await res.json();
                         
-                        // Handle found cards
-                        data.data.forEach((card, i) => {
-                            if (card.name) {
-                                let ex = this.activeDeck.cards.find(c => c.name === card.name);
-                                if(ex) ex.qty += parsed[i].qty;
-                                else this.activeDeck.cards.push({
-                                    id: card.id, name: card.name, qty: parsed[i].qty, isCommander: false,
-                                    image_uris: card.image_uris, type_line: card.type_line, prices: card.prices
-                                });
-                            }
-                        });
-                        this.notify("SYNC SUCCESSFUL");
-                        this.showImportModal = false;
-                        this.importRaw = '';
-                    } catch(e) { this.notify("SYNC ERROR"); }
-                    this.isImporting = false; this.progress = 0; this.save();
+                        const result = await response.json();
+                        this.progress = 60;
+
+                        if (result.data) {
+                            result.data.forEach((card, index) => {
+                                if (card && card.id) {
+                                    const originalRequest = parsedData[index];
+                                    let existing = this.activeDeck.cards.find(c => c.name === card.name);
+                                    
+                                    if (existing) {
+                                        existing.qty += originalRequest.qty;
+                                    } else {
+                                        this.activeDeck.cards.push({
+                                            id: card.id, name: card.name, qty: originalRequest.qty,
+                                            isCommander: false, image_uris: card.image_uris,
+                                            type_line: card.type_line, prices: card.prices
+                                        });
+                                    }
+                                }
+                            });
+                            this.progress = 100;
+                            this.notify("SYNC SUCCESSFUL");
+                            this.save();
+                            this.showImportModal = false;
+                            this.importRaw = '';
+                        }
+                    } catch (err) {
+                        console.error("Import Error:", err);
+                        this.notify("SYNC FAILED");
+                    } finally {
+                        setTimeout(() => { this.isImporting = false; this.progress = 0; }, 500);
+                    }
                 },
 
                 moveCursor(e) {
                     if(!this.inSidebar) return;
                     const c = document.getElementById('custom-cursor');
                     c.style.left = e.clientX+'px'; c.style.top = e.clientY+'px';
-                },
-                handleDragStart(i) { this.dragSrcIndex = i; },
-                handleDrop() {
-                    if (this.dragSrcIndex !== null && this.dragOverIndex !== null) {
-                        const item = this.decks.splice(this.dragSrcIndex, 1)[0];
-                        this.decks.splice(this.dragOverIndex, 0, item);
-                        this.save();
-                    }
-                    this.dragSrcIndex = null; this.dragOverIndex = null;
                 },
                 deleteDeck(id) {
                     if(confirm("PURGE DATA?")) {
@@ -242,7 +239,6 @@
                 getStatusColor(c) { const s = this.getUsageStats(c.name); return s.totalOwned === 0 ? 'text-red-500' : (s.avail < 0 ? 'text-cyan-400' : 'text-green-400'); },
                 setCommander(c) { if(!this.isCreature(c)) return; this.activeDeck.cards.forEach(x => x.isCommander = false); c.isCommander = true; this.save(); },
                 getDeckPrice() { return this.activeDeck?.cards?.reduce((s, c) => s + (parseFloat(c.prices?.usd || 0)*c.qty), 0).toFixed(2) || '0.00'; },
-                async searchCards() { /* Logic same as previous stable */ },
                 adjustQty(c, v) { c.qty += v; if(c.qty <= 0) this.removeCompletely(c); this.save(); },
                 removeCompletely(c) { this.activeDeck.cards = this.activeDeck.cards.filter(x => x.id !== c.id); this.save(); },
                 getCardsByCat(cat) {
