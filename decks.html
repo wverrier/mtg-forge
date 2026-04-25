@@ -8,21 +8,24 @@
     <style>
         :root { --gunmetal: #111c1e; --dark: #1a2527; --cyan: #22d3ee; --steel: #8fa9b0; --warn: #eb5f7a; --ok: #4ade80; }
         
-        /* MODERN CURSOR */
-        * { cursor: none !important; }
+        /* CUSTOM HUD CURSOR (Sidebar Only) */
+        .sidebar-active { cursor: none !important; }
         #custom-cursor {
-            width: 20px; height: 20px; border: 1px solid var(--cyan); border-radius: 50%;
+            width: 16px; height: 16px; border: 1px solid var(--cyan); border-radius: 50%;
             position: fixed; pointer-events: none; z-index: 9999;
-            transition: transform 0.15s ease-out, background 0.2s;
+            transition: transform 0.1s ease-out, background 0.2s;
             transform: translate(-50%, -50%);
-            box-shadow: 0 0 10px rgba(34, 211, 238, 0.4);
+            box-shadow: 0 0 8px rgba(34, 211, 238, 0.3);
+            display: none; /* Hidden by default */
         }
+        .sidebar-active #custom-cursor { display: block; }
         #custom-cursor::after {
-            content: ''; width: 4px; height: 4px; background: var(--cyan);
+            content: ''; width: 2px; height: 2px; background: var(--cyan);
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             border-radius: 50%;
         }
-        .cursor-hover #custom-cursor { transform: translate(-50%, -50%) scale(2.5); background: rgba(34, 211, 238, 0.1); }
+        /* Subtle expansion on hover */
+        .cursor-hover #custom-cursor { transform: translate(-50%, -50%) scale(1.4); background: rgba(34, 211, 238, 0.15); }
 
         body { background: var(--gunmetal); color: #e8eef0; font-family: 'Rajdhani', sans-serif; overflow: hidden; }
         .panel { background: var(--dark); border: 1px solid rgba(34, 211, 238, 0.1); }
@@ -48,27 +51,29 @@
         .drag-over { border-top: 2px solid var(--cyan); }
     </style>
 </head>
-<body x-data="deckApp()" x-init="init()" @mousemove="moveCursor($event)" :class="isHovering ? 'cursor-hover' : ''">
+<body x-data="deckApp()" x-init="init()" @mousemove="moveCursor($event)" :class="{'sidebar-active': inSidebar, 'cursor-hover': isHovering}">
     
     <div id="custom-cursor"></div>
     <img x-show="hoverPreview.visible && viewMode === 'list'" :src="hoverPreview.url" class="card-preview-float shadow-2xl" :style="`left:${hoverPreview.x+20}px; top:${hoverPreview.y-120}px`" />
 
     <header class="panel px-6 py-4 flex justify-between items-center border-b border-cyan-400/20">
         <div class="flex items-center gap-6">
-            <a href="index.html" @mouseenter="isHovering = true" @mouseleave="isHovering = false" class="text-3xl font-bold brand-blue" style="font-family: 'Bebas Neue'">FORGE // DECKS</a>
+            <a href="index.html" class="text-3xl font-bold brand-blue" style="font-family: 'Bebas Neue'">FORGE // DECKS</a>
             <nav class="flex gap-4 text-[10px] font-bold uppercase tracking-widest text-steel">
-                <a href="collection.html" @mouseenter="isHovering = true" @mouseleave="isHovering = false" class="hover:brand-blue transition">Vault</a>
-                <a href="import.html" @mouseenter="isHovering = true" @mouseleave="isHovering = false" class="hover:brand-blue transition">Uplink</a>
+                <a href="collection.html" class="hover:brand-blue transition">Vault</a>
+                <a href="import.html" class="hover:brand-blue transition">Uplink</a>
             </nav>
         </div>
         <div class="flex gap-2">
-            <button @click="viewMode = 'list'" @mouseenter="isHovering = true" @mouseleave="isHovering = false" :class="viewMode === 'list' ? 'bg-cyan-400 text-black' : 'bg-white/5'" class="px-3 py-1 text-[10px] font-bold uppercase">List</button>
-            <button @click="viewMode = 'visual'" @mouseenter="isHovering = true" @mouseleave="isHovering = false" :class="viewMode === 'visual' ? 'bg-cyan-400 text-black' : 'bg-white/5'" class="px-3 py-1 text-[10px] font-bold uppercase">Visual</button>
+            <button @click="viewMode = 'list'" :class="viewMode === 'list' ? 'bg-cyan-400 text-black' : 'bg-white/5'" class="px-3 py-1 text-[10px] font-bold uppercase">List</button>
+            <button @click="viewMode = 'visual'" :class="viewMode === 'visual' ? 'bg-cyan-400 text-black' : 'bg-white/5'" class="px-3 py-1 text-[10px] font-bold uppercase">Visual</button>
         </div>
     </header>
 
     <main class="grid grid-cols-12 gap-4 p-4 h-[calc(100vh-80px)]">
-        <div class="col-span-2 panel p-4 flex flex-col">
+        <div class="col-span-2 panel p-4 flex flex-col" 
+             @mouseenter="inSidebar = true" 
+             @mouseleave="inSidebar = false; isHovering = false">
             <button @click="createNewDeck()" @mouseenter="isHovering = true" @mouseleave="isHovering = false" class="w-full btn-primary text-xs mb-6">+ Initialise List</button>
             <div class="flex-1 overflow-y-auto" @dragover.prevent @drop="handleDrop()">
                 <template x-for="(deck, index) in decks" :key="deck.id">
@@ -95,7 +100,7 @@
                     </div>
                 </div>
                 <div class="z-10 flex flex-col items-end gap-2">
-                    <input type="text" x-model="searchQuery" @input.debounce.500ms="searchCards()" @mouseenter="isHovering = true" @mouseleave="isHovering = false" placeholder="QUERY DATABASE..." class="w-full max-w-[280px] bg-black/40 border border-cyan-400/20 p-2 text-xs font-mono focus:border-cyan-400 outline-none">
+                    <input type="text" x-model="searchQuery" @input.debounce.500ms="searchCards()" placeholder="QUERY DATABASE..." class="w-full max-w-[280px] bg-black/40 border border-cyan-400/20 p-2 text-xs font-mono focus:border-cyan-400 outline-none">
                 </div>
             </div>
 
@@ -114,10 +119,10 @@
                                         <div class="flex items-center gap-3 truncate">
                                             <span class="status-icon" :class="getStatusColor(card)" x-text="getStatusIcon(card)"></span>
                                             <div class="flex items-center gap-3">
-                                                <span @mouseenter="showPreview($event, card.image_uris?.normal); isHovering = true" @mouseleave="hidePreview(); isHovering = false" x-text="card.name" class="text-xs font-bold truncate group-hover:brand-blue transition-colors"></span>
-                                                <button x-show="isCreature(card)" @click="setCommander(card)" @mouseenter="isHovering = true" @mouseleave="isHovering = false" class="btn-cmdr uppercase tracking-tighter" :class="card.isCommander ? 'active' : ''" x-text="card.isCommander ? 'CMDR ACTIVE' : 'SET CMDR'"></button>
+                                                <span @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()" x-text="card.name" class="text-xs font-bold truncate group-hover:brand-blue transition-colors"></span>
+                                                <button x-show="isCreature(card)" @click="setCommander(card)" class="btn-cmdr uppercase tracking-tighter" :class="card.isCommander ? 'active' : ''" x-text="card.isCommander ? 'CMDR ACTIVE' : 'SET CMDR'"></button>
                                             </div>
-                                            <button @click="removeCompletely(card)" @mouseenter="isHovering = true" @mouseleave="isHovering = false" class="opacity-0 group-hover:opacity-100 transition-opacity text-[8px] bg-red-900/20 text-red-400 px-1 hover:bg-red-500 hover:text-white uppercase font-bold">Delete</button>
+                                            <button @click="removeCompletely(card)" class="opacity-0 group-hover:opacity-100 transition-opacity text-[8px] bg-red-900/20 text-red-400 px-1 hover:bg-red-500 hover:text-white uppercase font-bold">Delete</button>
                                         </div>
                                         <div class="flex items-center gap-4">
                                             <div class="hud-counter flex gap-2 items-center" :class="getUsageStats(card.name).avail < 0 ? 'deficit' : ''">
@@ -126,9 +131,9 @@
                                                 <span><span x-text="getUsageStats(card.name).avail"></span> AVAIL</span>
                                             </div>
                                             <div class="flex items-center bg-black/40 rounded border border-white/5">
-                                                <button @click="adjustQty(card, -1)" @mouseenter="isHovering = true" @mouseleave="isHovering = false" class="px-3 py-1 text-steel hover:brand-blue">-</button>
+                                                <button @click="adjustQty(card, -1)" class="px-3 py-1 text-steel hover:brand-blue">-</button>
                                                 <span class="text-[10px] font-mono w-6 text-center border-x border-white/5" x-text="card.qty"></span>
-                                                <button @click="adjustQty(card, 1)" @mouseenter="isHovering = true" @mouseleave="isHovering = false" class="px-3 py-1 text-steel hover:brand-blue">+</button>
+                                                <button @click="adjustQty(card, 1)" class="px-3 py-1 text-steel hover:brand-blue">+</button>
                                             </div>
                                         </div>
                                     </div>
@@ -137,9 +142,8 @@
 
                             <div x-show="viewMode === 'visual'" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
                                 <template x-for="card in getCardsByCat(cat)" :key="card.id">
-                                    <div class="relative group" @mouseenter="isHovering = true" @mouseleave="isHovering = false">
+                                    <div class="relative group">
                                         <img :src="card.image_uris?.normal" class="rounded-xl w-full border border-white/10 group-hover:border-cyan-400/50 transition-all duration-300 shadow-2xl group-hover:scale-105">
-                                        
                                         <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex flex-col justify-end p-3 gap-2">
                                             <div class="flex justify-between items-center">
                                                 <span class="status-icon" :class="getStatusColor(card)" x-text="getStatusIcon(card)"></span>
@@ -153,7 +157,6 @@
                                                 <button @click="adjustQty(card, 1)" class="flex-1 py-1 hover:bg-cyan-400 hover:text-black">+</button>
                                             </div>
                                         </div>
-                                        
                                         <div x-show="card.isCommander" class="absolute -top-2 -right-2 bg-yellow-400 text-black text-[8px] font-black px-2 py-1 rounded skew-x-[-10deg] shadow-lg">COMMANDER</div>
                                     </div>
                                 </template>
@@ -173,11 +176,13 @@
                 activeDeck: null, searchQuery: '', searchResults: [], viewMode: 'list',
                 categories: ['Commander', 'Creature', 'Sorcery', 'Instant', 'Artifact', 'Enchantment', 'Planeswalker', 'Land'],
                 hoverPreview: { visible: false, url: '', x: 0, y: 0 },
-                dragSrcIndex: null, dragOverIndex: null, isHovering: false,
+                dragSrcIndex: null, dragOverIndex: null, 
+                inSidebar: false, isHovering: false,
 
                 init() { if(this.decks.length) this.activeDeck = this.decks[0]; },
                 
                 moveCursor(e) {
+                    if(!this.inSidebar) return;
                     const cursor = document.getElementById('custom-cursor');
                     cursor.style.left = e.clientX + 'px';
                     cursor.style.top = e.clientY + 'px';
@@ -214,7 +219,7 @@
                 getUsageStats(name) {
                     const target = this.clean(name);
                     const total = this.vault.reduce((s, v) => this.clean(v.name) === target ? s + v.qty : s, 0);
-                    let deckCount = 0, totalUsed = 0;
+                    let totalUsed = 0, deckCount = 0;
                     this.decks.forEach(d => {
                         const c = d.cards.find(x => this.clean(x.name) === target);
                         if (c) { deckCount++; totalUsed += c.qty; }
@@ -248,16 +253,6 @@
                     const res = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(this.searchQuery)}`);
                     const d = await res.json();
                     this.searchResults = d.data?.slice(0, 10) || [];
-                },
-
-                addCard(card) {
-                    if(!this.activeDeck.cards) this.activeDeck.cards = [];
-                    let ex = this.activeDeck.cards.find(c => c.name === card.name);
-                    ex ? ex.qty++ : this.activeDeck.cards.push({
-                        id: card.id, name: card.name, qty: 1, isCommander: false, 
-                        image_uris: card.image_uris, type_line: card.type_line, prices: card.prices
-                    });
-                    this.save(); this.searchResults = []; this.searchQuery = '';
                 },
 
                 adjustQty(card, v) {
