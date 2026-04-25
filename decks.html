@@ -6,7 +6,7 @@
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        :root { --gunmetal: #111c1e; --dark: #1a2527; --cyan: #22d3ee; --steel: #8fa9b0; }
+        :root { --gunmetal: #111c1e; --dark: #1a2527; --cyan: #22d3ee; --steel: #8fa9b0; --warn: #eb5f7a; }
         body { background: var(--gunmetal); color: #e8eef0; font-family: 'Rajdhani', sans-serif; overflow: hidden; }
         .panel { background: var(--dark); border: 1px solid rgba(34, 211, 238, 0.1); }
         .btn-primary { border: 1px solid var(--cyan); color: var(--cyan); padding: 0.5rem; text-transform: uppercase; font-weight: 700; clip-path: polygon(0 0, 92% 0, 100% 25%, 100% 100%, 8% 100%, 0 75%); transition: 0.2s; cursor: pointer; }
@@ -15,27 +15,30 @@
         .category-header { font-family: 'Bebas Neue'; letter-spacing: 1px; color: var(--steel); border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 4px; padding-bottom: 2px; }
         .scroll-v { overflow-y: auto; height: calc(100vh - 280px); scrollbar-width: thin; scrollbar-color: var(--cyan) transparent; }
         .brand-blue { color: rgb(34, 211, 238); }
-        .modal-bg { background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); }
-        .utilization-tag { font-family: 'monospace'; font-size: 9px; letter-spacing: 1px; color: var(--steel); background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.03); }
+        
+        /* MODERN HUD COUNTER */
+        .hud-counter { 
+            font-family: 'monospace'; 
+            font-size: 8px; 
+            letter-spacing: 2px; 
+            color: rgba(143, 169, 176, 0.4); /* Faded like the background count */
+            background: rgba(255, 255, 255, 0.03); 
+            padding: 4px 10px; 
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+        .hud-counter .val { color: rgba(34, 211, 238, 0.5); font-weight: bold; }
+        .hud-counter.deficit { 
+            background: rgba(235, 95, 122, 0.1); 
+            border: 1px solid rgba(235, 95, 122, 0.2);
+            color: var(--warn);
+        }
+        .hud-counter.deficit .val { color: var(--warn); }
     </style>
 </head>
 <body x-data="deckApp()" x-init="init()">
     
     <img x-show="hoverPreview.visible && viewMode === 'list'" :src="hoverPreview.url" class="card-preview-float shadow-2xl" :style="`left:${hoverPreview.x+20}px; top:${hoverPreview.y-120}px`" />
-
-    <div x-show="showImportModal" class="fixed inset-0 z-[4000] modal-bg flex items-center justify-center p-6" x-transition>
-        <div class="panel w-full max-w-2xl p-6 flex flex-col gap-4">
-            <div class="flex justify-between items-center border-b border-white/10 pb-4">
-                <h3 class="text-xl font-bold italic brand-blue">DECK // UPLINK</h3>
-                <button @click="showImportModal = false" class="text-steel hover:text-white font-mono">X CLOSE</button>
-            </div>
-            <textarea x-model="importRaw" class="w-full h-64 bg-black/50 border border-white/10 p-4 font-mono text-xs text-cyan-200 outline-none focus:border-cyan-400" placeholder="1 Dogmeat, Ever Loyal..."></textarea>
-            <div class="flex justify-end gap-4">
-                <div x-show="isImporting" class="text-xs italic animate-pulse brand-blue py-2">PROCESSING NEURAL LINK...</div>
-                <button @click="processImport()" :disabled="isImporting" class="btn-primary px-8">EXECUTE IMPORT</button>
-            </div>
-        </div>
-    </div>
 
     <header class="panel px-6 py-4 flex justify-between items-center border-b border-cyan-400/20">
         <div class="flex items-center gap-6">
@@ -52,7 +55,6 @@
     </header>
 
     <main class="grid grid-cols-12 gap-4 p-4 h-[calc(100vh-80px)]">
-        
         <div class="col-span-2 panel p-4 flex flex-col">
             <button @click="createNewDeck()" class="w-full btn-primary text-xs mb-6">+ Initialise List</button>
             <div class="flex-1 overflow-y-auto">
@@ -62,18 +64,16 @@
                             <div x-text="deck.name" class="font-bold text-sm uppercase truncate"></div>
                             <div class="text-[9px] font-mono brand-blue" x-text="countAllCards(deck) + ' UNITS'"></div>
                         </div>
-                        <button @click.stop="deleteDeck(deck.id)" class="absolute top-3 right-2 text-[8px] font-black text-red-500 opacity-0 group-hover:opacity-100 transition-opacity hover:underline">PURGE</button>
                     </div>
                 </template>
             </div>
         </div>
 
         <div class="col-span-10 flex flex-col gap-4" x-show="activeDeck">
-            
             <div class="panel p-6 grid grid-cols-3 items-center gap-4 relative overflow-hidden">
                 <div class="absolute top-[-20px] right-1/2 translate-x-1/2 opacity-5 font-mono text-[120px] leading-none select-none brand-blue" x-text="countAllCards(activeDeck)"></div>
                 <div><h2 class="text-4xl font-bold uppercase italic truncate" x-text="activeDeck.name"></h2></div>
-                <div class="flex flex-col items-center justify-center border-x border-white/5 h-full">
+                <div class="flex flex-col items-center justify-center border-x border-white/5 h-full z-10">
                     <p class="text-[10px] text-steel uppercase tracking-[0.3em] mb-1">Combat Readiness</p>
                     <div class="flex gap-6 font-mono text-sm brand-blue font-bold">
                         <span>COUNT: <span x-text="countAllCards(activeDeck)"></span></span>
@@ -82,16 +82,7 @@
                 </div>
                 <div class="z-10 flex flex-col items-end gap-2">
                     <input type="text" x-model="searchQuery" @input.debounce.500ms="searchCards()" placeholder="QUERY DATABASE..." class="w-full max-w-[280px] bg-black/40 border border-cyan-400/20 p-2 text-xs font-mono focus:border-cyan-400 outline-none">
-                    <button @click="showImportModal = true" class="text-[9px] uppercase font-bold text-cyan-400/60 hover:text-cyan-400 transition underline underline-offset-4 tracking-tighter">Import List Uplink</button>
                 </div>
-            </div>
-
-            <div x-show="searchResults.length" class="absolute right-8 top-44 w-72 panel z-[100] shadow-2xl max-h-80 overflow-y-auto border-cyan-400/40">
-                <template x-for="card in searchResults" :key="card.id">
-                    <div @click="addCard(card)" class="p-2 hover:bg-cyan-400/10 border-b border-white/5 cursor-pointer group">
-                        <p x-text="card.name" class="text-xs font-bold truncate group-hover:brand-blue transition-colors"></p>
-                    </div>
-                </template>
             </div>
 
             <div class="grid grid-cols-12 gap-4 flex-1 overflow-hidden">
@@ -105,26 +96,26 @@
                             
                             <div x-show="viewMode === 'list'" class="grid grid-cols-1 gap-1">
                                 <template x-for="card in getCardsByCat(cat)" :key="card.id">
-                                    <div class="flex justify-between items-center py-1 hover:bg-white/5 px-2 group rounded relative">
-                                        <div class="flex items-center gap-2 truncate">
-                                            <span :class="getOwnershipStyle(card)" class="text-[10px] font-bold w-4" x-text="getOwnershipIcon(card)"></span>
-                                            <span @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()" x-text="card.name" class="text-xs font-bold cursor-help truncate"></span>
+                                    <div class="flex justify-between items-center py-1.5 hover:bg-white/[0.02] px-2 group rounded border-b border-white/[0.02]">
+                                        <div class="flex items-center gap-4 truncate">
+                                            <span @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()" x-text="card.name" class="text-xs font-bold cursor-help truncate group-hover:brand-blue transition-colors"></span>
                                             
-                                            <div class="flex gap-2 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button @click="removeCompletely(card)" class="text-[8px] bg-red-900/30 text-red-500 px-1 hover:bg-red-500 hover:text-white transition uppercase font-bold">Delete</button>
-                                            </div>
+                                            <button @click="removeCompletely(card)" class="opacity-0 group-hover:opacity-100 transition-opacity text-[8px] bg-red-900/20 text-red-400 px-1 hover:bg-red-500 hover:text-white uppercase font-bold">Delete</button>
                                         </div>
                                         
-                                        <div class="flex items-center gap-3">
-                                            <div class="utilization-tag uppercase" x-show="!isBasicLand(card.name)">
-                                                <span x-text="getUsageStats(card.name).deckCount"></span> DECKS / 
-                                                <span :class="getUsageStats(card.name).avail <= 0 ? 'text-red-500' : 'brand-blue'" x-text="getUsageStats(card.name).avail"></span> AVAIL.
+                                        <div class="flex items-center gap-4">
+                                            <div class="hud-counter flex gap-2 items-center" 
+                                                 :class="getUsageStats(card.name).avail < 0 ? 'deficit' : ''"
+                                                 x-show="!isBasicLand(card.name)">
+                                                <span><span class="val" x-text="getUsageStats(card.name).deckCount"></span> DECKS</span>
+                                                <span class="opacity-20">|</span>
+                                                <span><span class="val" x-text="getUsageStats(card.name).avail"></span> AVAIL</span>
                                             </div>
 
-                                            <div class="flex items-center bg-black/20 rounded border border-white/5">
-                                                <button @click="adjustQty(card, -1)" class="px-2 text-steel hover:brand-blue">-</button>
-                                                <span class="text-[10px] font-mono w-4 text-center" x-text="card.qty"></span>
-                                                <button @click="adjustQty(card, 1)" class="px-2 text-steel hover:brand-blue">+</button>
+                                            <div class="flex items-center bg-black/40 rounded border border-white/5">
+                                                <button @click="adjustQty(card, -1)" class="px-3 py-1 text-steel hover:brand-blue transition">-</button>
+                                                <span class="text-[10px] font-mono w-6 text-center border-x border-white/5" x-text="card.qty"></span>
+                                                <button @click="adjustQty(card, 1)" class="px-3 py-1 text-steel hover:brand-blue transition">+</button>
                                             </div>
                                         </div>
                                     </div>
@@ -136,24 +127,11 @@
                                     <div class="relative group cursor-pointer" @click="adjustQty(card, 1)" @contextmenu.prevent="adjustQty(card, -1)">
                                         <img :src="card.image_uris?.normal" class="rounded-lg border-2 border-transparent hover:border-cyan-400 transition shadow-lg w-full">
                                         <div class="absolute top-1 right-1 bg-black/80 brand-blue text-[10px] font-bold px-2 py-0.5 rounded border border-cyan-400/30" x-text="'x'+card.qty"></div>
-                                        <div :class="getOwnershipStyle(card)" class="absolute bottom-1 right-1 px-1.5 py-0.5 text-[10px] rounded bg-black/80 shadow-md border border-white/10" x-text="getOwnershipIcon(card)"></div>
                                     </div>
                                 </template>
                             </div>
                         </div>
                     </template>
-                </div>
-
-                <div class="col-span-3 flex flex-col gap-4 overflow-hidden">
-                    <div class="panel p-4 flex-1 scroll-v">
-                        <h3 class="category-header text-xs text-red-400">Tactical Sideboard</h3>
-                        <template x-for="card in activeDeck.sideboard || []" :key="card.id">
-                            <div class="flex justify-between py-1 text-[11px] group">
-                                <span x-text="card.name" class="truncate font-bold opacity-80 group-hover:opacity-100" @mouseenter="showPreview($event, card.image_uris?.normal)"></span>
-                                <div class="flex gap-2"><span x-text="'x'+card.qty" class="brand-blue"></span></div>
-                            </div>
-                        </template>
-                    </div>
                 </div>
             </div>
         </div>
@@ -165,14 +143,13 @@
                 decks: JSON.parse(localStorage.getItem('decks') || '[]'),
                 vault: JSON.parse(localStorage.getItem('forge_vault') || '[]'),
                 activeDeck: null, searchQuery: '', searchResults: [], viewMode: 'list',
-                showImportModal: false, importRaw: '', isImporting: false,
                 categories: ['Commander', 'Creature', 'Sorcery', 'Instant', 'Artifact', 'Enchantment', 'Planeswalker', 'Land'],
                 hoverPreview: { visible: false, url: '', x: 0, y: 0 },
                 init() { if(this.decks.length) this.activeDeck = this.decks[0]; },
                 
                 clean(n) {
                     if(!n) return "";
-                    return n.split('(')[0].split(' // ')[0].replace(/[^\w\s]/gi, '').toLowerCase().trim();
+                    return n.split('(')[0].split('[')[0].split(' // ')[0].replace(/[^\w\s]/gi, '').toLowerCase().trim();
                 },
 
                 isBasicLand(name) {
@@ -183,36 +160,13 @@
                 getUsageStats(name) {
                     const targetName = this.clean(name);
                     const totalOwned = this.vault.reduce((sum, v) => this.clean(v.name) === targetName ? sum + v.qty : sum, 0);
-                    
                     let deckCount = 0;
                     let totalUsedAcrossDecks = 0;
-
                     this.decks.forEach(d => {
                         const inDeck = d.cards.find(c => this.clean(c.name) === targetName);
-                        if (inDeck) {
-                            deckCount++;
-                            totalUsedAcrossDecks += inDeck.qty;
-                        }
+                        if (inDeck) { deckCount++; totalUsedAcrossDecks += inDeck.qty; }
                     });
-
-                    return {
-                        deckCount: deckCount,
-                        avail: totalOwned - totalUsedAcrossDecks
-                    };
-                },
-
-                getOwnershipIcon(card) {
-                    if(this.isBasicLand(card.name)) return '✓';
-                    const stats = this.getUsageStats(card.name);
-                    if (stats.avail < 0) return '⧉';
-                    return stats.avail >= 0 ? '✓' : '✕';
-                },
-
-                getOwnershipStyle(card) {
-                    const icon = this.getOwnershipIcon(card);
-                    if(icon === '✓') return 'text-green-400';
-                    if(icon === '⧉') return 'text-cyan-400';
-                    return 'text-red-500';
+                    return { deckCount, avail: totalOwned - totalUsedAcrossDecks };
                 },
 
                 getDeckPrice() {
@@ -261,7 +215,6 @@
                 save() { localStorage.setItem('decks', JSON.stringify(this.decks)); },
                 showPreview(e, url) { this.hoverPreview = { visible: true, url, x: e.clientX, y: e.clientY }; },
                 hidePreview() { this.hoverPreview.visible = false; },
-                
                 createNewDeck() {
                     const name = prompt("Terminal ID:");
                     if(name) { 
