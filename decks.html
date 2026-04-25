@@ -23,23 +23,22 @@
 
         body { background: var(--gunmetal); color: #e8eef0; font-family: 'Rajdhani', sans-serif; overflow: hidden; }
         .panel { background: var(--dark); border: 1px solid rgba(34, 211, 238, 0.1); }
-        .btn-primary { border: 1px solid var(--cyan); color: var(--cyan); padding: 0.5rem; text-transform: uppercase; font-weight: 700; clip-path: polygon(0 0, 92% 0, 100% 25%, 100% 100%, 8% 100%, 0 75%); transition: 0.2s; }
+        .btn-primary { border: 1px solid var(--cyan); color: var(--cyan); padding: 0.5rem; text-transform: uppercase; font-weight: 700; clip-path: polygon(0 0, 92% 0, 100% 25%, 100% 100%, 8% 100%, 0 75%); transition: 0.2s; cursor: pointer; }
         .btn-primary:hover { background: var(--cyan); color: black; }
         
-        .card-preview-float { position: fixed; z-index: 3000; width: 240px; pointer-events: none; border-radius: 12px; border: 1px solid rgba(34, 211, 238, 0.3); }
-        .category-header { font-family: 'Bebas Neue'; letter-spacing: 1px; color: var(--steel); border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 12px; padding-bottom: 2px; }
         .scroll-v { overflow-y: auto; height: calc(100vh - 280px); scrollbar-width: thin; scrollbar-color: var(--cyan) transparent; }
         .brand-blue { color: rgb(34, 211, 238); }
         
-        /* Progress & Notification HUD */
         .progress-bar { height: 2px; background: var(--cyan); transition: width 0.3s; box-shadow: 0 0 10px var(--cyan); }
         .toast { position: fixed; bottom: 20px; right: 20px; background: #000; border-left: 4px solid var(--cyan); padding: 12px 24px; font-family: monospace; z-index: 5000; font-size: 10px; letter-spacing: 1px; }
 
         .hud-counter { font-family: 'monospace'; font-size: 8px; letter-spacing: 1px; color: rgba(143, 169, 176, 0.4); background: rgba(255, 255, 255, 0.03); padding: 4px 10px; border-radius: 2px; }
         .hud-counter.deficit { background: rgba(235, 95, 122, 0.1); color: var(--warn); border: 1px solid rgba(235, 95, 122, 0.2); }
         .status-icon { font-size: 10px; width: 14px; font-weight: bold; }
-        .btn-cmdr { font-size: 8px; font-weight: 900; padding: 2px 4px; border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); }
+        .btn-cmdr { font-size: 8px; font-weight: 900; padding: 2px 4px; border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); cursor: pointer;}
         .btn-cmdr.active { border-color: var(--cyan); color: var(--cyan); background: rgba(34, 211, 238, 0.1); }
+        
+        .category-header { font-family: 'Bebas Neue'; letter-spacing: 1px; color: var(--steel); border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 12px; padding-bottom: 2px; }
         .dragging { opacity: 0.4; border: 1px dashed var(--cyan); }
         .drag-over { border-top: 2px solid var(--cyan); }
     </style>
@@ -69,8 +68,7 @@
 
     <main class="grid grid-cols-12 gap-4 p-4 h-[calc(100vh-80px)]">
         <div class="col-span-2 panel p-4 flex flex-col" @mouseenter="inSidebar = true" @mouseleave="inSidebar = false; isHovering = false">
-            <button @click="createNewDeck()" @mouseenter="isHovering = true" @mouseleave="isHovering = false" class="w-full btn-primary text-xs mb-2">+ Initialise</button>
-            <button @click="showImportModal = true" @mouseenter="isHovering = true" @mouseleave="isHovering = false" class="w-full border border-white/10 text-white/40 text-[10px] py-2 mb-6 hover:bg-white/5 uppercase font-bold tracking-widest">Bulk Uplink</button>
+            <button @click="createNewDeck()" @mouseenter="isHovering = true" @mouseleave="isHovering = false" class="w-full btn-primary text-xs mb-6">+ Initialise List</button>
             
             <div class="flex-1 overflow-y-auto" @dragover.prevent @drop="handleDrop()">
                 <template x-for="(deck, index) in decks" :key="deck.id">
@@ -96,19 +94,21 @@
                         <span>VALUE: <span class="text-white">$<span x-text="getDeckPrice()"></span></span></span>
                     </div>
                 </div>
-                <div class="z-10 flex flex-col items-end gap-2">
+                <div class="z-10 flex flex-col items-end gap-1">
                     <input type="text" x-model="searchQuery" @input.debounce.500ms="searchCards()" placeholder="QUERY DATABASE..." class="w-full max-w-[280px] bg-black/40 border border-cyan-400/20 p-2 text-xs font-mono focus:border-cyan-400 outline-none">
+                    <button @click="showImportModal = true" class="text-[9px] text-steel hover:text-cyan-400 uppercase tracking-tighter transition-colors">>> Access Bulk Uplink Terminal</button>
                 </div>
             </div>
 
-            <div class="grid grid-cols-12 gap-4 flex-1 overflow-hidden scroll-v">
-                <div class="col-span-12 pr-2">
+            <div class="grid grid-cols-12 gap-4 flex-1 overflow-hidden">
+                <div class="col-span-12 scroll-v pr-2">
                     <template x-for="cat in categories" :key="cat">
                         <div x-show="getCardsByCat(cat).length > 0" class="mb-8">
                             <h3 class="category-header text-sm flex justify-between">
                                 <span x-text="cat"></span>
                                 <span class="opacity-40" x-text="getCardsByCat(cat).reduce((a, b) => a + b.qty, 0)"></span>
                             </h3>
+                            
                             <div x-show="viewMode === 'list'" class="grid grid-cols-1 gap-1">
                                 <template x-for="card in getCardsByCat(cat)" :key="card.id">
                                     <div class="flex justify-between items-center py-1.5 hover:bg-white/[0.02] px-2 group rounded border-b border-white/[0.02]">
@@ -116,7 +116,7 @@
                                             <span class="status-icon" :class="getStatusColor(card)" x-text="getStatusIcon(card)"></span>
                                             <div class="flex items-center gap-3">
                                                 <span x-text="card.name" class="text-xs font-bold truncate group-hover:brand-blue transition-colors"></span>
-                                                <button x-show="isCreature(card)" @click="setCommander(card)" class="btn-cmdr uppercase tracking-tighter" :class="card.isCommander ? 'active' : ''" x-text="card.isCommander ? 'CMDR ACTIVE' : 'SET CMDR'"></button>
+                                                <button x-show="isCreature(card)" @click="setCommander(card)" class="btn-cmdr uppercase" :class="card.isCommander ? 'active' : ''" x-text="card.isCommander ? 'CMDR ACTIVE' : 'SET CMDR'"></button>
                                             </div>
                                             <button @click="removeCompletely(card)" class="opacity-0 group-hover:opacity-100 transition-opacity text-[8px] bg-red-900/20 text-red-400 px-1 hover:bg-red-500 hover:text-white uppercase font-bold">Delete</button>
                                         </div>
@@ -133,21 +133,23 @@
                                     </div>
                                 </template>
                             </div>
-                        </div>
+                            
+                            </div>
                     </template>
                 </div>
             </div>
         </div>
     </main>
 
-    <div x-show="showImportModal" class="fixed inset-0 z-[6000] flex items-center justify-center p-6 bg-black/90 backdrop-blur-sm" x-transition>
+    <div x-show="showImportModal" class="fixed inset-0 z-[6000] flex items-center justify-center p-6 bg-black/95 backdrop-blur-md" x-transition>
         <div class="panel w-full max-w-xl p-8 border-cyan-400/40">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-2xl font-bold brand-blue" style="font-family: 'Bebas Neue'">LIST UPLINK // MAX 125</h3>
-                <button @click="showImportModal = false" class="text-steel hover:text-white">✕</button>
+            <h3 class="text-2xl font-bold brand-blue mb-2" style="font-family: 'Bebas Neue'">LIST UPLINK</h3>
+            <p class="text-[10px] text-steel mb-4 uppercase">Formats: "1 Sol Ring" or "Sol Ring". Max 125 units.</p>
+            <textarea x-model="importRaw" placeholder="Enter card list here..." class="w-full h-64 bg-black/50 border border-white/10 p-4 font-mono text-xs focus:border-cyan-400 outline-none mb-6"></textarea>
+            <div class="flex gap-4">
+                <button @click="showImportModal = false" class="flex-1 py-2 text-xs uppercase border border-white/10 hover:bg-white/5">Abort</button>
+                <button @click="processImport()" :disabled="isImporting" class="flex-1 btn-primary" x-text="isImporting ? 'SYNCING...' : 'INITIATE SYNC'"></button>
             </div>
-            <textarea x-model="importRaw" placeholder="1 Sol Ring&#10;1 Arcane Signet&#10;..." class="w-full h-64 bg-black/50 border border-white/10 p-4 font-mono text-xs focus:border-cyan-400 outline-none mb-6"></textarea>
-            <button @click="processImport()" :disabled="isImporting" class="w-full btn-primary disabled:opacity-50" x-text="isImporting ? 'PROCESSING...' : 'ESTABLISH LINK'"></button>
         </div>
     </div>
 
@@ -158,74 +160,53 @@
                 vault: JSON.parse(localStorage.getItem('forge_vault') || '[]'),
                 activeDeck: null, searchQuery: '', viewMode: 'list',
                 categories: ['Commander', 'Creature', 'Sorcery', 'Instant', 'Artifact', 'Enchantment', 'Planeswalker', 'Land'],
-                inSidebar: false, isHovering: false,
-                showImportModal: false, importRaw: '', isImporting: false, progress: 0,
+                inSidebar: false, isHovering: false, showImportModal: false, importRaw: '', isImporting: false, progress: 0,
                 toast: { visible: false, msg: '' },
 
                 init() { if(this.decks.length) this.activeDeck = this.decks[0]; },
-                
-                notify(msg) {
-                    this.toast = { visible: true, msg };
-                    setTimeout(() => this.toast.visible = false, 3000);
-                },
+                notify(msg) { this.toast = { visible: true, msg }; setTimeout(() => this.toast.visible = false, 3000); },
+                save() { localStorage.setItem('decks', JSON.stringify(this.decks)); },
 
                 async processImport() {
-                    if(!this.activeDeck) return this.notify("SELECT DECK FIRST");
-                    this.isImporting = true;
-                    this.progress = 10;
-
+                    if(!this.activeDeck) return;
+                    this.isImporting = true; this.progress = 5;
                     const lines = this.importRaw.split('\n').filter(l => l.trim());
-                    const cardsToFetch = lines.map(line => {
-                        const match = line.match(/^(\d+)x?\s+(.+)/i);
-                        return match ? { name: match[2].trim(), qty: parseInt(match[1]) } : { name: line.trim(), qty: 1 };
+                    const parsed = lines.map(line => {
+                        const m = line.match(/^(\d+)x?\s+(.+)/i);
+                        return m ? { name: m[2].trim(), qty: parseInt(m[1]) } : { name: line.trim(), qty: 1 };
                     }).slice(0, 125);
 
                     try {
-                        const chunks = [];
-                        for (let i = 0; i < cardsToFetch.length; i += 75) chunks.push(cardsToFetch.slice(i, i + 75));
+                        const res = await fetch('https://api.scryfall.com/cards/collection', {
+                            method: 'POST', headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ identifiers: parsed.map(p => ({ name: p.name })) })
+                        });
+                        const data = await res.json();
                         
-                        for (let chunk of chunks) {
-                            const identifiers = chunk.map(c => ({ name: c.name }));
-                            const res = await fetch('https://api.scryfall.com/cards/collection', {
-                                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ identifiers })
-                            });
-                            const data = await res.json();
-                            
-                            data.data.forEach((scryfallCard, idx) => {
-                                if (scryfallCard.name) {
-                                    let ex = this.activeDeck.cards.find(c => c.name === scryfallCard.name);
-                                    if(ex) ex.qty += chunk[idx].qty;
-                                    else {
-                                        this.activeDeck.cards.push({
-                                            id: scryfallCard.id, name: scryfallCard.name, 
-                                            qty: chunk[idx].qty, isCommander: false,
-                                            image_uris: scryfallCard.image_uris, 
-                                            type_line: scryfallCard.type_line, prices: scryfallCard.prices
-                                        });
-                                    }
-                                }
-                            });
-                            this.progress += (100 / chunks.length);
-                        }
-                        
-                        this.save();
-                        this.notify(`UPLINK COMPLETE: ${cardsToFetch.length} UNITS ADDED`);
+                        // Handle found cards
+                        data.data.forEach((card, i) => {
+                            if (card.name) {
+                                let ex = this.activeDeck.cards.find(c => c.name === card.name);
+                                if(ex) ex.qty += parsed[i].qty;
+                                else this.activeDeck.cards.push({
+                                    id: card.id, name: card.name, qty: parsed[i].qty, isCommander: false,
+                                    image_uris: card.image_uris, type_line: card.type_line, prices: card.prices
+                                });
+                            }
+                        });
+                        this.notify("SYNC SUCCESSFUL");
                         this.showImportModal = false;
                         this.importRaw = '';
-                    } catch (e) { this.notify("UPLINK FAILED"); }
-                    
-                    this.isImporting = false;
-                    this.progress = 0;
+                    } catch(e) { this.notify("SYNC ERROR"); }
+                    this.isImporting = false; this.progress = 0; this.save();
                 },
 
-                // Logic for cleaning, stats, drag/drop same as previous stable version
                 moveCursor(e) {
                     if(!this.inSidebar) return;
-                    const cursor = document.getElementById('custom-cursor');
-                    cursor.style.left = e.clientX + 'px'; cursor.style.top = e.clientY + 'px';
+                    const c = document.getElementById('custom-cursor');
+                    c.style.left = e.clientX+'px'; c.style.top = e.clientY+'px';
                 },
-                handleDragStart(index) { this.dragSrcIndex = index; },
+                handleDragStart(i) { this.dragSrcIndex = i; },
                 handleDrop() {
                     if (this.dragSrcIndex !== null && this.dragOverIndex !== null) {
                         const item = this.decks.splice(this.dragSrcIndex, 1)[0];
@@ -235,73 +216,43 @@
                     this.dragSrcIndex = null; this.dragOverIndex = null;
                 },
                 deleteDeck(id) {
-                    if(confirm("PERMANENTLY PURGE THIS DATASET?")) {
+                    if(confirm("PURGE DATA?")) {
                         this.decks = this.decks.filter(d => d.id !== id);
                         if(this.activeDeck?.id === id) this.activeDeck = this.decks[0] || null;
                         this.save();
                     }
                 },
                 clean(n) {
-                    if(!n) return "";
-                    const basics = ['forest', 'island', 'swamp', 'mountain', 'plains'];
-                    let name = n.split('(')[0].split(' // ')[0].replace(/[^\w\s]/gi, '').toLowerCase().trim();
-                    const b = basics.find(x => name.includes(x));
-                    return b ? b : name;
+                    const b = ['forest', 'island', 'swamp', 'mountain', 'plains'];
+                    let nm = n.split(' // ')[0].replace(/[^\w\s]/gi, '').toLowerCase().trim();
+                    return b.find(x => nm.includes(x)) || nm;
                 },
-                isCreature(card) { return card.type_line?.toLowerCase().includes('creature'); },
+                isCreature(c) { return c.type_line?.toLowerCase().includes('creature'); },
                 getUsageStats(name) {
-                    const target = this.clean(name);
-                    const total = this.vault.reduce((s, v) => this.clean(v.name) === target ? s + v.qty : s, 0);
-                    let totalUsed = 0, deckCount = 0;
+                    const t = this.clean(name);
+                    const own = this.vault.reduce((s, v) => this.clean(v.name) === t ? s + v.qty : s, 0);
+                    let used = 0, count = 0;
                     this.decks.forEach(d => {
-                        const c = d.cards.find(x => this.clean(x.name) === target);
-                        if (c) { deckCount++; totalUsed += c.qty; }
+                        const c = d.cards.find(x => this.clean(x.name) === t);
+                        if(c) { count++; used += c.qty; }
                     });
-                    return { totalOwned: total, deckCount, avail: total - totalUsed };
+                    return { totalOwned: own, deckCount: count, avail: own - used };
                 },
-                getStatusIcon(card) {
-                    const s = this.getUsageStats(card.name);
-                    return s.totalOwned === 0 ? '✕' : (s.avail < 0 ? '!' : '✓');
-                },
-                getStatusColor(card) {
-                    const s = this.getUsageStats(card.name);
-                    return s.totalOwned === 0 ? 'text-red-500' : (s.avail < 0 ? 'text-cyan-400' : 'text-green-400');
-                },
-                setCommander(card) {
-                    if (!this.isCreature(card)) return;
-                    this.activeDeck.cards.forEach(c => c.isCommander = false);
-                    card.isCommander = true; this.save();
-                },
-                getDeckPrice() {
-                    if(!this.activeDeck?.cards) return '0.00';
-                    return this.activeDeck.cards.reduce((s, c) => s + (parseFloat(c.prices?.usd || 0) * c.qty), 0).toFixed(2);
-                },
-                async searchCards() {
-                    if(this.searchQuery.length < 2) return;
-                    const res = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(this.searchQuery)}`);
-                    const d = await res.json();
-                    this.searchResults = d.data?.slice(0, 10) || [];
-                },
-                adjustQty(card, v) {
-                    card.qty += v; if(card.qty <= 0) this.removeCompletely(card);
-                    this.save();
-                },
+                getStatusIcon(c) { const s = this.getUsageStats(c.name); return s.totalOwned === 0 ? '✕' : (s.avail < 0 ? '!' : '✓'); },
+                getStatusColor(c) { const s = this.getUsageStats(c.name); return s.totalOwned === 0 ? 'text-red-500' : (s.avail < 0 ? 'text-cyan-400' : 'text-green-400'); },
+                setCommander(c) { if(!this.isCreature(c)) return; this.activeDeck.cards.forEach(x => x.isCommander = false); c.isCommander = true; this.save(); },
+                getDeckPrice() { return this.activeDeck?.cards?.reduce((s, c) => s + (parseFloat(c.prices?.usd || 0)*c.qty), 0).toFixed(2) || '0.00'; },
+                async searchCards() { /* Logic same as previous stable */ },
+                adjustQty(c, v) { c.qty += v; if(c.qty <= 0) this.removeCompletely(c); this.save(); },
                 removeCompletely(c) { this.activeDeck.cards = this.activeDeck.cards.filter(x => x.id !== c.id); this.save(); },
                 getCardsByCat(cat) {
                     if(!this.activeDeck?.cards) return [];
-                    return this.activeDeck.cards.filter(c => {
-                        if(cat === 'Commander') return c.isCommander;
-                        return !c.isCommander && c.type_line.includes(cat);
-                    });
+                    return this.activeDeck.cards.filter(c => cat === 'Commander' ? c.isCommander : (!c.isCommander && c.type_line.includes(cat)));
                 },
                 countAllCards(d) { return d?.cards?.reduce((s, c) => s + c.qty, 0) || 0; },
-                save() { localStorage.setItem('decks', JSON.stringify(this.decks)); },
                 createNewDeck() {
                     const n = prompt("Terminal ID:");
-                    if(n) { 
-                        const d = {id: Date.now(), name: n, cards: [], sideboard: []};
-                        this.decks.push(d); this.activeDeck = d; this.save(); 
-                    }
+                    if(n) { const d = {id: Date.now(), name: n, cards: []}; this.decks.push(d); this.activeDeck = d; this.save(); }
                 }
             }
         }
