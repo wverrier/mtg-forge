@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8"><title>FORGE // DECK STRATEGIST</title>
+    <meta charset="UTF-8"><title>FORGE // DECKS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
@@ -10,10 +10,13 @@
         body { background: var(--gunmetal); color: #e8eef0; font-family: 'Rajdhani', sans-serif; overflow: hidden; }
         .panel { background: var(--dark); border: 1px solid rgba(34, 211, 238, 0.1); }
         .brand-blue { color: rgb(34, 211, 238); }
-        .status-icon { font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 2px; }
-        .status-available { background: rgba(34, 211, 238, 0.2); color: var(--cyan); border: 1px solid var(--cyan); }
-        .status-shared { background: rgba(251, 146, 60, 0.2); color: var(--orange); border: 1px solid var(--orange); }
-        .status-missing { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; }
+        .scroll-v { overflow-y: auto; height: calc(100vh - 180px); scrollbar-width: thin; scrollbar-color: var(--cyan) transparent; }
+        
+        /* Status Indicators */
+        .indicator { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .ind-synced { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+        .ind-shared { background: var(--orange); box-shadow: 0 0 8px var(--orange); }
+        .ind-missing { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
     </style>
 </head>
 <body x-data="deckApp()" x-init="init()">
@@ -28,54 +31,55 @@
         </div>
     </header>
 
-    <main class="p-8 grid grid-cols-12 gap-6 h-[calc(100vh-100px)]">
-        <div class="col-span-4 panel p-6 flex flex-col gap-4 overflow-y-auto">
-            <h2 class="text-xl font-bold brand-blue italic uppercase tracking-tighter">Active Projects</h2>
-            <template x-for="deck in decks" :key="deck.id">
-                <button @click="selectDeck(deck)" 
-                        :class="selectedDeck?.id === deck.id ? 'border-cyan-400 bg-cyan-400/5' : 'border-white/5'"
-                        class="panel p-4 text-left hover:border-cyan-400/50 transition">
-                    <p class="font-bold uppercase" x-text="deck.name"></p>
-                    <p class="text-[10px] text-steel" x-text="deck.cards.length + ' CARDS'"></p>
-                </button>
-            </template>
+    <main class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="panel p-6 scroll-v">
+            <h2 class="text-xl font-bold brand-blue mb-4 uppercase italic">Active Strategy Units</h2>
+            <div class="flex flex-col gap-2">
+                <template x-for="deck in decks" :key="deck.id">
+                    <div @click="selectedDeck = deck" 
+                         :class="selectedDeck?.id === deck.id ? 'border-cyan-400 bg-cyan-400/5' : 'border-white/5'"
+                         class="p-4 border cursor-pointer hover:border-cyan-400/50 transition flex justify-between items-center">
+                        <div>
+                            <p class="font-bold uppercase text-sm" x-text="deck.name"></p>
+                            <p class="text-[10px] text-steel" x-text="deck.cards.length + ' Cards'"></p>
+                        </div>
+                        <div class="text-cyan-400 text-xs font-mono">>></div>
+                    </div>
+                </template>
+            </div>
         </div>
 
-        <div class="col-span-8 panel p-6 flex flex-col overflow-hidden">
+        <div class="panel p-6 scroll-v">
             <template x-if="selectedDeck">
-                <div class="flex flex-col h-full">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-3xl font-bold italic brand-blue uppercase" x-text="selectedDeck.name"></h2>
-                        <div class="text-[10px] font-mono text-steel">AVAILABILITY HUD ENABLED</div>
+                <div>
+                    <div class="flex justify-between items-start mb-6">
+                        <h2 class="text-2xl font-bold brand-blue uppercase italic" x-text="selectedDeck.name"></h2>
+                        <div class="flex gap-4 text-[9px] font-mono uppercase text-steel">
+                            <span><i class="indicator ind-synced mr-1"></i> Ready</span>
+                            <span><i class="indicator ind-shared mr-1"></i> Shared</span>
+                            <span><i class="indicator ind-missing mr-1"></i> Null</span>
+                        </div>
                     </div>
 
-                    <div class="overflow-y-auto pr-2">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="text-[10px] text-steel uppercase tracking-widest border-b border-white/5">
-                                    <th class="py-2">Unit Name</th>
-                                    <th>Status</th>
-                                    <th>Vault Context</th>
-                                </tr>
-                            </thead>
-                            <tbody class="text-xs">
-                                <template x-for="card in selectedDeck.cards" :key="card.name">
-                                    <tr class="border-b border-white/5 hover:bg-white/5 transition">
-                                        <td class="py-3 font-bold uppercase" x-text="card.name"></td>
-                                        <td>
-                                            <span x-show="getAvailability(card.name).status === 'available'" class="status-icon status-available">SYNCED</span>
-                                            <span x-show="getAvailability(card.name).status === 'shared'" class="status-icon status-shared">SHARED</span>
-                                            <span x-show="getAvailability(card.name).status === 'missing'" class="status-icon status-missing">NULL</span>
-                                        </td>
-                                        <td class="font-mono text-[10px] text-steel">
-                                            VLT: <span class="text-white" x-text="getAvailability(card.name).vaultQty"></span> | 
-                                            USED: <span class="text-white" x-text="getAvailability(card.name).totalUsed"></span>
-                                        </td>
-                                    </tr>
-                                </template>
-                            </tbody>
-                        </table>
+                    <div class="flex flex-col gap-1">
+                        <template x-for="card in selectedDeck.cards" :key="card.name">
+                            <div class="flex justify-between items-center p-2 bg-black/20 border border-white/5 text-xs">
+                                <div class="flex items-center gap-3">
+                                    <i :class="getStatusClass(card.name)" class="indicator"></i>
+                                    <span class="font-bold uppercase" x-text="card.name"></span>
+                                </div>
+                                <div class="flex items-center gap-4 font-mono text-[10px]">
+                                    <span class="text-steel">VLT: <span class="text-white" x-text="getVaultQty(card.name)"></span></span>
+                                    <span class="text-steel">QTY: <span class="brand-blue" x-text="card.qty || 1"></span></span>
+                                </div>
+                            </div>
+                        </template>
                     </div>
+                </div>
+            </template>
+            <template x-if="!selectedDeck">
+                <div class="h-full flex items-center justify-center opacity-20">
+                    <p class="text-xl italic font-bold uppercase">Select Project to Inspect</p>
                 </div>
             </template>
         </div>
@@ -92,25 +96,31 @@
                     if (this.decks.length > 0) this.selectedDeck = this.decks[0];
                 },
 
-                selectDeck(deck) { this.selectedDeck = deck; },
+                // CLEAN NAME MATCHING (Solves the Altair / Showcase name mismatch)
+                getCleanName(name) {
+                    return name.split('(')[0].trim().toLowerCase();
+                },
 
-                getAvailability(cardName) {
-                    // Clean name check for Altair-style issues
-                    const cleanName = cardName.split('(')[0].trim().toLowerCase();
+                getVaultQty(name) {
+                    const clean = this.getCleanName(name);
+                    const match = this.vault.find(v => this.getCleanName(v.name) === clean);
+                    return match ? match.qty : 0;
+                },
+
+                getStatusClass(name) {
+                    const clean = this.getCleanName(name);
+                    const vQty = this.getVaultQty(name);
                     
-                    const vaultCard = this.vault.find(v => v.name.toLowerCase().includes(cleanName));
-                    const vaultQty = vaultCard ? vaultCard.qty : 0;
+                    if (vQty === 0) return 'ind-missing';
 
-                    // Calculate total usage across ALL decks
+                    // Calculate total usage across ALL decks for "Shared" status
                     let totalUsed = 0;
                     this.decks.forEach(d => {
-                        const found = d.cards.find(c => c.name.toLowerCase().includes(cleanName));
+                        const found = d.cards.find(c => this.getCleanName(c.name) === clean);
                         if (found) totalUsed += (found.qty || 1);
                     });
 
-                    if (vaultQty === 0) return { status: 'missing', vaultQty: 0, totalUsed };
-                    if (vaultQty >= totalUsed) return { status: 'available', vaultQty, totalUsed };
-                    return { status: 'shared', vaultQty, totalUsed };
+                    return vQty >= totalUsed ? 'ind-synced' : 'ind-shared';
                 }
             }
         }
