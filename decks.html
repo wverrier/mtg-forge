@@ -1,43 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8"><title>FORGE // TACTICAL BUILDER</title>
+    <meta charset="UTF-8"><title>FORGE // DECK STRATEGIST</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        :root { --gunmetal: #111c1e; --dark: #1a2527; --cyan: #22d3ee; --steel: #8fa9b0; }
+        :root { --gunmetal: #111c1e; --dark: #1a2527; --cyan: #22d3ee; --steel: #8fa9b0; --orange: #fb923c; }
         body { background: var(--gunmetal); color: #e8eef0; font-family: 'Rajdhani', sans-serif; overflow: hidden; }
         .panel { background: var(--dark); border: 1px solid rgba(34, 211, 238, 0.1); }
-        .btn-primary { border: 1px solid var(--cyan); color: var(--cyan); padding: 0.5rem; text-transform: uppercase; font-weight: 700; clip-path: polygon(0 0, 92% 0, 100% 25%, 100% 100%, 8% 100%, 0 75%); transition: 0.2s; cursor: pointer; }
-        .btn-primary:hover { background: var(--cyan); color: black; }
-        .card-preview-float { position: fixed; z-index: 3000; width: 240px; pointer-events: none; border-radius: 12px; border: 1px solid rgba(34, 211, 238, 0.3); }
-        .category-header { font-family: 'Bebas Neue'; letter-spacing: 1px; color: var(--steel); border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 4px; padding-bottom: 2px; }
-        .scroll-v { overflow-y: auto; height: calc(100vh - 280px); scrollbar-width: thin; scrollbar-color: var(--cyan) transparent; }
         .brand-blue { color: rgb(34, 211, 238); }
-        .modal-bg { background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); }
+        .status-icon { font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 2px; }
+        .status-available { background: rgba(34, 211, 238, 0.2); color: var(--cyan); border: 1px solid var(--cyan); }
+        .status-shared { background: rgba(251, 146, 60, 0.2); color: var(--orange); border: 1px solid var(--orange); }
+        .status-missing { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; }
     </style>
 </head>
 <body x-data="deckApp()" x-init="init()">
-    
-    <img x-show="hoverPreview.visible && viewMode === 'list'" :src="hoverPreview.url" class="card-preview-float shadow-2xl" :style="`left:${hoverPreview.x+20}px; top:${hoverPreview.y-120}px`" />
 
-    <div x-show="showImportModal" class="fixed inset-0 z-[4000] modal-bg flex items-center justify-center p-6" x-transition>
-        <div class="panel w-full max-w-2xl p-6 flex flex-col gap-4">
-            <div class="flex justify-between items-center border-b border-white/10 pb-4">
-                <h3 class="text-xl font-bold italic brand-blue">DECK // UPLINK</h3>
-                <button @click="showImportModal = false" class="text-steel hover:text-white font-mono">X CLOSE</button>
-            </div>
-            <p class="text-[10px] text-steel uppercase tracking-widest">Paste your list below (Format: 1 Card Name)</p>
-            <textarea x-model="importRaw" class="w-full h-64 bg-black/50 border border-white/10 p-4 font-mono text-xs text-cyan-200 outline-none focus:border-cyan-400" placeholder="1 Dogmeat, Ever Loyal&#10;1 Swamp..."></textarea>
-            <div class="flex justify-end gap-4">
-                <div x-show="isImporting" class="text-xs italic animate-pulse brand-blue py-2">PROCESSING NEURAL LINK...</div>
-                <button @click="processImport()" :disabled="isImporting" class="btn-primary px-8">EXECUTE IMPORT</button>
-            </div>
-        </div>
-    </div>
-
-    <header class="panel px-6 py-4 flex justify-between items-center border-b border-cyan-400/20">
+    <header class="panel px-6 py-4 flex justify-between items-center border-b border-cyan-400/20 shadow-xl">
         <div class="flex items-center gap-6">
             <a href="index.html" class="text-3xl font-bold brand-blue" style="font-family: 'Bebas Neue'">FORGE // DECKS</a>
             <nav class="flex gap-4 text-[10px] font-bold uppercase tracking-widest text-steel">
@@ -45,240 +26,91 @@
                 <a href="import.html" class="hover:brand-blue transition">Uplink</a>
             </nav>
         </div>
-        <div class="flex gap-2">
-            <button @click="viewMode = 'list'" :class="viewMode === 'list' ? 'bg-cyan-400 text-black' : 'bg-white/5'" class="px-3 py-1 text-[10px] font-bold uppercase">List</button>
-            <button @click="viewMode = 'visual'" :class="viewMode === 'visual' ? 'bg-cyan-400 text-black' : 'bg-white/5'" class="px-3 py-1 text-[10px] font-bold uppercase">Visual</button>
-        </div>
     </header>
 
-    <main class="grid grid-cols-12 gap-4 p-4 h-[calc(100vh-80px)]">
-        
-        <div class="col-span-2 panel p-4 flex flex-col">
-            <button @click="createNewDeck()" class="w-full btn-primary text-xs mb-6">+ Initialise List</button>
-            <div class="flex-1 overflow-y-auto">
-                <template x-for="deck in decks" :key="deck.id">
-                    <div class="group relative mb-2">
-                        <div @click="activeDeck = deck" :class="activeDeck?.id === deck.id ? 'border-cyan-400 bg-cyan-400/5' : 'border-transparent opacity-60'" class="p-3 border-l-2 cursor-pointer transition hover:opacity-100">
-                            <div x-text="deck.name" class="font-bold text-sm uppercase truncate"></div>
-                            <div class="text-[9px] font-mono brand-blue" x-text="countAllCards(deck) + ' UNITS'"></div>
-                        </div>
-                        <button @click.stop="deleteDeck(deck.id)" class="absolute top-3 right-2 text-[8px] font-black text-red-500 opacity-0 group-hover:opacity-100 transition-opacity hover:underline">PURGE</button>
-                    </div>
-                </template>
-            </div>
+    <main class="p-8 grid grid-cols-12 gap-6 h-[calc(100vh-100px)]">
+        <div class="col-span-4 panel p-6 flex flex-col gap-4 overflow-y-auto">
+            <h2 class="text-xl font-bold brand-blue italic uppercase tracking-tighter">Active Projects</h2>
+            <template x-for="deck in decks" :key="deck.id">
+                <button @click="selectDeck(deck)" 
+                        :class="selectedDeck?.id === deck.id ? 'border-cyan-400 bg-cyan-400/5' : 'border-white/5'"
+                        class="panel p-4 text-left hover:border-cyan-400/50 transition">
+                    <p class="font-bold uppercase" x-text="deck.name"></p>
+                    <p class="text-[10px] text-steel" x-text="deck.cards.length + ' CARDS'"></p>
+                </button>
+            </template>
         </div>
 
-        <div class="col-span-10 flex flex-col gap-4" x-show="activeDeck">
-            
-            <div class="panel p-6 grid grid-cols-3 items-center gap-4 relative overflow-hidden">
-                <div class="absolute top-[-20px] right-1/2 translate-x-1/2 opacity-5 font-mono text-[120px] leading-none select-none brand-blue" x-text="countAllCards(activeDeck)"></div>
-                <div><h2 class="text-4xl font-bold uppercase italic truncate" x-text="activeDeck.name"></h2></div>
-                <div class="flex flex-col items-center justify-center border-x border-white/5 h-full">
-                    <p class="text-[10px] text-steel uppercase tracking-[0.3em] mb-1">Combat Readiness</p>
-                    <div class="flex gap-6 font-mono text-sm brand-blue font-bold">
-                        <span>COUNT: <span x-text="countAllCards(activeDeck)"></span></span>
-                        <span>VALUE: <span class="text-white">$<span x-text="getDeckPrice()"></span></span></span>
+        <div class="col-span-8 panel p-6 flex flex-col overflow-hidden">
+            <template x-if="selectedDeck">
+                <div class="flex flex-col h-full">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-3xl font-bold italic brand-blue uppercase" x-text="selectedDeck.name"></h2>
+                        <div class="text-[10px] font-mono text-steel">AVAILABILITY HUD ENABLED</div>
                     </div>
-                </div>
-                <div class="z-10 flex flex-col items-end gap-2">
-                    <input type="text" x-model="searchQuery" @input.debounce.500ms="searchCards()" placeholder="QUERY DATABASE..." class="w-full max-w-[280px] bg-black/40 border border-cyan-400/20 p-2 text-xs font-mono focus:border-cyan-400 outline-none">
-                    <button @click="showImportModal = true" class="text-[9px] uppercase font-bold text-cyan-400/60 hover:text-cyan-400 transition underline underline-offset-4 tracking-tighter">Import List Uplink</button>
-                </div>
-            </div>
 
-            <div x-show="searchResults.length" class="absolute right-8 top-44 w-72 panel z-[100] shadow-2xl max-h-80 overflow-y-auto border-cyan-400/40">
-                <template x-for="card in searchResults" :key="card.id">
-                    <div @click="addCard(card)" class="p-2 hover:bg-cyan-400/10 border-b border-white/5 cursor-pointer group">
-                        <p x-text="card.name" class="text-xs font-bold truncate group-hover:brand-blue transition-colors"></p>
-                        <p class="text-[9px] text-steel uppercase" x-text="card.type_line"></p>
-                    </div>
-                </template>
-            </div>
-
-            <div class="grid grid-cols-12 gap-4 flex-1 overflow-hidden">
-                <div class="col-span-9 scroll-v pr-2">
-                    <template x-for="cat in categories" :key="cat">
-                        <div x-show="getCardsByCat(cat).length > 0" class="mb-6">
-                            <h3 class="category-header text-sm flex justify-between">
-                                <span x-text="cat"></span>
-                                <span class="opacity-40" x-text="getCardsByCat(cat).reduce((a, b) => a + b.qty, 0)"></span>
-                            </h3>
-                            
-                            <div x-show="viewMode === 'list'" class="grid grid-cols-2 gap-x-6">
-                                <template x-for="card in getCardsByCat(cat)" :key="card.id">
-                                    <div class="flex justify-between items-center py-1 hover:bg-white/5 px-2 group rounded relative">
-                                        <div class="flex items-center gap-2 truncate">
-                                            <span :class="getOwnershipStyle(card)" class="text-[10px] font-bold w-4" x-text="getOwnershipIcon(card)"></span>
-                                            <span @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()" x-text="card.name" class="text-xs font-bold cursor-help truncate"></span>
-                                            
-                                            <div class="flex gap-2 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button x-show="card.type_line.includes('Creature')" @click="toggleCommander(card)" class="text-[8px] bg-white/10 px-1 hover:bg-cyan-400 hover:text-black transition uppercase">Set Cmdr</button>
-                                                <button @click="removeCompletely(card)" class="text-[8px] bg-red-900/30 text-red-500 px-1 hover:bg-red-500 hover:text-white transition uppercase font-bold">Delete</button>
-                                            </div>
-                                        </div>
-                                        <div class="flex items-center gap-3">
-                                            <div class="flex items-center bg-black/20 rounded">
-                                                <button @click="adjustQty(card, -1)" class="px-2 text-steel hover:brand-blue">-</button>
-                                                <span class="text-[10px] font-mono w-4 text-center" x-text="card.qty"></span>
-                                                <button @click="adjustQty(card, 1)" class="px-2 text-steel hover:brand-blue">+</button>
-                                            </div>
-                                        </div>
-                                    </div>
+                    <div class="overflow-y-auto pr-2">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="text-[10px] text-steel uppercase tracking-widest border-b border-white/5">
+                                    <th class="py-2">Unit Name</th>
+                                    <th>Status</th>
+                                    <th>Vault Context</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-xs">
+                                <template x-for="card in selectedDeck.cards" :key="card.name">
+                                    <tr class="border-b border-white/5 hover:bg-white/5 transition">
+                                        <td class="py-3 font-bold uppercase" x-text="card.name"></td>
+                                        <td>
+                                            <span x-show="getAvailability(card.name).status === 'available'" class="status-icon status-available">SYNCED</span>
+                                            <span x-show="getAvailability(card.name).status === 'shared'" class="status-icon status-shared">SHARED</span>
+                                            <span x-show="getAvailability(card.name).status === 'missing'" class="status-icon status-missing">NULL</span>
+                                        </td>
+                                        <td class="font-mono text-[10px] text-steel">
+                                            VLT: <span class="text-white" x-text="getAvailability(card.name).vaultQty"></span> | 
+                                            USED: <span class="text-white" x-text="getAvailability(card.name).totalUsed"></span>
+                                        </td>
+                                    </tr>
                                 </template>
-                            </div>
-
-                            <div x-show="viewMode === 'visual'" class="grid grid-cols-4 md:grid-cols-5 gap-4">
-                                <template x-for="card in getCardsByCat(cat)" :key="card.id">
-                                    <div class="relative group cursor-pointer" @click="adjustQty(card, 1)" @contextmenu.prevent="adjustQty(card, -1)">
-                                        <img :src="card.image_uris?.normal" class="rounded-lg border-2 border-transparent hover:border-cyan-400 transition shadow-lg w-full">
-                                        <div class="absolute top-1 right-1 bg-black/80 brand-blue text-[10px] font-bold px-2 py-0.5 rounded border border-cyan-400/30" x-text="'x'+card.qty"></div>
-                                        <div :class="getOwnershipStyle(card)" class="absolute bottom-1 right-1 px-1.5 py-0.5 text-[10px] rounded bg-black/80 shadow-md border border-white/10" x-text="getOwnershipIcon(card)"></div>
-                                    </div>
-                                </template>
-                            </div>
-                        </div>
-                    </template>
-                </div>
-
-                <div class="col-span-3 flex flex-col gap-4 overflow-hidden">
-                    <div class="panel p-4 flex-1 scroll-v">
-                        <h3 class="category-header text-xs text-red-400">Tactical Sideboard</h3>
-                        <template x-for="card in activeDeck.sideboard || []" :key="card.id">
-                            <div class="flex justify-between py-1 text-[11px] group">
-                                <span x-text="card.name" class="truncate font-bold opacity-80 group-hover:opacity-100" @mouseenter="showPreview($event, card.image_uris?.normal)"></span>
-                                <div class="flex gap-2">
-                                    <span x-text="'x'+card.qty" class="brand-blue"></span>
-                                    <button @click="removeSide(card)" class="text-red-500 opacity-0 group-hover:opacity-100 transition">✕</button>
-                                </div>
-                            </div>
-                        </template>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-            </div>
+            </template>
         </div>
     </main>
 
     <script>
         function deckApp() {
             return {
-                decks: JSON.parse(localStorage.getItem('decks') || '[]'),
                 vault: JSON.parse(localStorage.getItem('forge_vault') || '[]'),
-                activeDeck: null, searchQuery: '', searchResults: [], viewMode: 'list',
-                showImportModal: false, importRaw: '', isImporting: false,
-                categories: ['Commander', 'Creature', 'Sorcery', 'Instant', 'Artifact', 'Enchantment', 'Planeswalker', 'Land'],
-                hoverPreview: { visible: false, url: '', x: 0, y: 0 },
-                init() { if(this.decks.length) this.activeDeck = this.decks[0]; },
-                
-                clean(n) {
-                    if(!n) return "";
-                    return n.split('(')[0].split(' // ')[0].replace(/[^\w\s]/gi, '').toLowerCase().trim();
+                decks: JSON.parse(localStorage.getItem('forge_decks') || '[]'),
+                selectedDeck: null,
+
+                init() {
+                    if (this.decks.length > 0) this.selectedDeck = this.decks[0];
                 },
 
-                async processImport() {
-                    this.isImporting = true;
-                    const lines = this.importRaw.split('\n');
-                    for(let line of lines) {
-                        if(!line.trim()) continue;
-                        const match = line.match(/^(\d+)\s+([^\[\(]+)/);
-                        if(match) {
-                            const qty = parseInt(match[1]);
-                            const name = match[2].trim();
-                            try {
-                                const res = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`);
-                                const card = await res.json();
-                                if(card.name) {
-                                    for(let i=0; i<qty; i++) { this.addCard(card); }
-                                }
-                            } catch(e) { console.error("Neural uplink failed:", name); }
-                            await new Promise(r => setTimeout(r, 100));
-                        }
-                    }
-                    this.isImporting = false; this.showImportModal = false; this.importRaw = '';
-                },
+                selectDeck(deck) { this.selectedDeck = deck; },
 
-                getOwnershipIcon(card) {
-                    const targetName = this.clean(card.name);
-                    const isBasic = ['forest', 'island', 'swamp', 'mountain', 'plains'].includes(targetName);
-                    const totalOwned = this.vault.reduce((sum, v) => this.clean(v.name) === targetName ? sum + v.qty : sum, 0);
-                    if(totalOwned === 0) return '✕';
-                    const usedInOthers = this.decks.filter(d => d.id !== this.activeDeck.id).reduce((sum, d) => {
-                        const inD = d.cards.find(c => this.clean(c.name) === targetName);
-                        return sum + (inD ? inD.qty : 0);
-                    }, 0);
-                    if(isBasic) return totalOwned > 0 ? '✓' : '✕';
-                    if(usedInOthers > 0 && (usedInOthers + card.qty) > totalOwned) return '⧉';
-                    if(card.qty > totalOwned) return '!';
-                    return '✓';
-                },
+                getAvailability(cardName) {
+                    // Clean name check for Altair-style issues
+                    const cleanName = cardName.split('(')[0].trim().toLowerCase();
+                    
+                    const vaultCard = this.vault.find(v => v.name.toLowerCase().includes(cleanName));
+                    const vaultQty = vaultCard ? vaultCard.qty : 0;
 
-                getOwnershipStyle(card) {
-                    const icon = this.getOwnershipIcon(card);
-                    if(icon === '✓') return 'text-green-400';
-                    if(icon === '⧉') return 'text-cyan-400';
-                    if(icon === '!') return 'text-yellow-400';
-                    return 'text-red-500';
-                },
-
-                getDeckPrice() {
-                    if(!this.activeDeck?.cards) return '0.00';
-                    const price = this.activeDeck.cards.reduce((sum, c) => {
-                        return sum + (parseFloat(c.prices?.usd || 0) * c.qty);
-                    }, 0);
-                    return price.toFixed(2);
-                },
-
-                async searchCards() {
-                    if(this.searchQuery.length < 2) return;
-                    const res = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(this.searchQuery)}`);
-                    const data = await res.json();
-                    this.searchResults = data.data?.slice(0, 10) || [];
-                },
-                addCard(card) {
-                    if(!this.activeDeck.cards) this.activeDeck.cards = [];
-                    let existing = this.activeDeck.cards.find(c => c.name === card.name);
-                    existing ? existing.qty++ : this.activeDeck.cards.push({
-                        id: card.id, name: card.name, qty: 1, isCommander: false, 
-                        image_uris: card.image_uris, type_line: card.type_line, prices: card.prices
+                    // Calculate total usage across ALL decks
+                    let totalUsed = 0;
+                    this.decks.forEach(d => {
+                        const found = d.cards.find(c => c.name.toLowerCase().includes(cleanName));
+                        if (found) totalUsed += (found.qty || 1);
                     });
-                    this.save(); this.searchResults = []; this.searchQuery = '';
-                },
-                toggleCommander(card) {
-                    this.activeDeck.cards.forEach(c => c.isCommander = false);
-                    card.isCommander = true; this.save();
-                },
-                removeCompletely(card) {
-                    this.activeDeck.cards = this.activeDeck.cards.filter(c => c.id !== card.id);
-                    this.save();
-                },
-                getCardsByCat(cat) {
-                    if(!this.activeDeck || !this.activeDeck.cards) return [];
-                    return this.activeDeck.cards.filter(c => {
-                        if(cat === 'Commander') return c.isCommander;
-                        if(c.isCommander) return false;
-                        return c.type_line.includes(cat);
-                    });
-                },
-                deleteDeck(id) {
-                    if(confirm("PURGE DATA?")) {
-                        this.decks = this.decks.filter(d => d.id !== id);
-                        this.activeDeck = this.decks[0] || null; this.save();
-                    }
-                },
-                adjustQty(card, val) {
-                    card.qty += val;
-                    if(card.qty <= 0) this.removeCompletely(card);
-                    this.save();
-                },
-                countAllCards(deck) { return deck?.cards?.reduce((s, c) => s + c.qty, 0) || 0; },
-                save() { localStorage.setItem('decks', JSON.stringify(this.decks)); },
-                showPreview(e, url) { this.hoverPreview = { visible: true, url, x: e.clientX, y: e.clientY }; },
-                hidePreview() { this.hoverPreview.visible = false; },
-                createNewDeck() {
-                    const name = prompt("Terminal ID:");
-                    if(name) { 
-                        const newDeck = {id: Date.now(), name: name, cards: [], sideboard: []};
-                        this.decks.push(newDeck); this.activeDeck = newDeck; this.save(); 
-                    }
+
+                    if (vaultQty === 0) return { status: 'missing', vaultQty: 0, totalUsed };
+                    if (vaultQty >= totalUsed) return { status: 'available', vaultQty, totalUsed };
+                    return { status: 'shared', vaultQty, totalUsed };
                 }
             }
         }
