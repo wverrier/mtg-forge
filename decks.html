@@ -61,6 +61,8 @@
         .import-banner.collapsed { transform: translateY(calc(100% - 32px)); }
         .banner-header { height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; background: rgba(34, 211, 238, 0.05); }
         textarea { scrollbar-width: none; resize: none; background: rgba(0,0,0,0.4) !important; }
+        .btn-mini { font-size: 7px; border: 1px solid rgba(34, 211, 238, 0.3); padding: 1px 4px; border-radius: 2px; color: var(--cyan); }
+        .btn-mini:hover { background: var(--cyan); color: black; }
     </style>
 </head>
 <body x-data="deckApp()" x-init="init()" @mousemove="moveCursor($event)" :class="{'sidebar-active': inSidebar, 'cursor-hover': isHovering}">
@@ -155,7 +157,10 @@
             <span x-show="isProcessing" class="text-[8px] animate-pulse">SYNCHRONIZING...</span>
         </div>
         <div class="p-4">
-            <p class="text-[9px] text-steel mb-2 uppercase font-mono tracking-tighter">Enter Card List (Format: "1 Card Name")</p>
+            <div class="flex justify-between items-center mb-2">
+                <p class="text-[9px] text-steel uppercase font-mono tracking-tighter">Enter Card List</p>
+                <button @click="rawList = formatRawList(rawList)" class="btn-mini uppercase font-black">Format List</button>
+            </div>
             <textarea x-model="rawList" class="w-full h-32 border border-cyan-400/20 p-2 text-[10px] font-mono text-cyan-200 outline-none focus:border-cyan-400 mb-3"></textarea>
             <div class="flex gap-2">
                 <button @click="processImport($data)" :disabled="isProcessing" class="flex-1 btn-primary text-[10px]">INTEGRATE UNITS</button>
@@ -177,6 +182,17 @@
                 init() { if(this.decks.length) this.activeDeck = this.decks[0]; },
                 moveCursor(e) { if(!this.inSidebar) return; const c = document.getElementById('custom-cursor'); c.style.left = e.clientX+'px'; c.style.top = e.clientY+'px'; },
 
+                formatRawList(text) {
+                    return text.split('\n').map(line => {
+                        // Regex: Look for Qty + Name, ignore [SET] and following numbers/descriptors
+                        const match = line.match(/^(\d+)\x20+([^\[\(\-]+)/);
+                        if (match) {
+                            return `${match[1]} ${match[2].trim()}`;
+                        }
+                        return line;
+                    }).join('\n');
+                },
+
                 async processImport(comp) {
                     if(!this.activeDeck || !comp.rawList.trim()) return;
                     comp.isProcessing = true;
@@ -187,14 +203,13 @@
                         if(!match) continue;
 
                         let qty = parseInt(match[1]);
-                        let searchStr = match[2].split('[')[0].trim();
+                        let searchStr = match[2].trim();
 
                         try {
                             const res = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(searchStr)}`);
                             const data = await res.json();
                             
                             if(data.id) {
-                                // Logic changed from overwrite to ADD
                                 const existing = this.activeDeck.cards.find(c => c.id === data.id);
                                 if(existing) {
                                     existing.qty += qty;
@@ -210,6 +225,8 @@
                                     });
                                 }
                             }
+                            // Rate limit protection
+                            await new Promise(r => setTimeout(r, 100));
                         } catch(e) { console.error("Sync Error:", e); }
                     }
 
