@@ -6,7 +6,7 @@
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        :root { --gunmetal: #111c1e; --dark: #1a2527; --cyan: #22d3ee; --steel: #8fa9b0; --warn: #eb5f7a; }
+        :root { --gunmetal: #111c1e; --dark: #1a2527; --cyan: #22d3ee; --steel: #8fa9b0; --warn: #eb5f7a; --ok: #4ade80; }
         body { background: var(--gunmetal); color: #e8eef0; font-family: 'Rajdhani', sans-serif; overflow: hidden; }
         .panel { background: var(--dark); border: 1px solid rgba(34, 211, 238, 0.1); }
         .btn-primary { border: 1px solid var(--cyan); color: var(--cyan); padding: 0.5rem; text-transform: uppercase; font-weight: 700; clip-path: polygon(0 0, 92% 0, 100% 25%, 100% 100%, 8% 100%, 0 75%); transition: 0.2s; cursor: pointer; }
@@ -16,24 +16,13 @@
         .scroll-v { overflow-y: auto; height: calc(100vh - 280px); scrollbar-width: thin; scrollbar-color: var(--cyan) transparent; }
         .brand-blue { color: rgb(34, 211, 238); }
         
-        /* MODERN HUD COUNTER */
         .hud-counter { 
-            font-family: 'monospace'; 
-            font-size: 8px; 
-            letter-spacing: 2px; 
-            color: rgba(143, 169, 176, 0.4); /* Faded like the background count */
-            background: rgba(255, 255, 255, 0.03); 
-            padding: 4px 10px; 
-            border-radius: 2px;
-            transition: all 0.3s ease;
+            font-family: 'monospace'; font-size: 8px; letter-spacing: 1px; 
+            color: rgba(143, 169, 176, 0.4); background: rgba(255, 255, 255, 0.03); 
+            padding: 4px 10px; border-radius: 2px; transition: all 0.3s ease;
         }
-        .hud-counter .val { color: rgba(34, 211, 238, 0.5); font-weight: bold; }
-        .hud-counter.deficit { 
-            background: rgba(235, 95, 122, 0.1); 
-            border: 1px solid rgba(235, 95, 122, 0.2);
-            color: var(--warn);
-        }
-        .hud-counter.deficit .val { color: var(--warn); }
+        .hud-counter.deficit { background: rgba(235, 95, 122, 0.1); color: var(--warn); border: 1px solid rgba(235, 95, 122, 0.2); }
+        .status-icon { font-size: 10px; width: 14px; display: inline-block; text-align: center; font-weight: bold; }
     </style>
 </head>
 <body x-data="deckApp()" x-init="init()">
@@ -97,8 +86,24 @@
                             <div x-show="viewMode === 'list'" class="grid grid-cols-1 gap-1">
                                 <template x-for="card in getCardsByCat(cat)" :key="card.id">
                                     <div class="flex justify-between items-center py-1.5 hover:bg-white/[0.02] px-2 group rounded border-b border-white/[0.02]">
-                                        <div class="flex items-center gap-4 truncate">
-                                            <span @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()" x-text="card.name" class="text-xs font-bold cursor-help truncate group-hover:brand-blue transition-colors"></span>
+                                        <div class="flex items-center gap-3 truncate">
+                                            <span x-show="!isBasicLand(card.name)" 
+                                                  class="status-icon"
+                                                  :class="getStatusColor(card)"
+                                                  x-text="getStatusIcon(card)">
+                                            </span>
+
+                                            <div class="flex items-center gap-2">
+                                                <span @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()" 
+                                                      x-text="card.name" 
+                                                      class="text-xs font-bold cursor-help truncate group-hover:brand-blue transition-colors">
+                                                </span>
+                                                <button @click="toggleCommander(card)" 
+                                                        class="text-[9px] px-1 rounded transition"
+                                                        :class="card.isCommander ? 'text-yellow-400 bg-yellow-400/10' : 'text-white/20 hover:text-white/60'">
+                                                    ★
+                                                </button>
+                                            </div>
                                             
                                             <button @click="removeCompletely(card)" class="opacity-0 group-hover:opacity-100 transition-opacity text-[8px] bg-red-900/20 text-red-400 px-1 hover:bg-red-500 hover:text-white uppercase font-bold">Delete</button>
                                         </div>
@@ -107,9 +112,9 @@
                                             <div class="hud-counter flex gap-2 items-center" 
                                                  :class="getUsageStats(card.name).avail < 0 ? 'deficit' : ''"
                                                  x-show="!isBasicLand(card.name)">
-                                                <span><span class="val" x-text="getUsageStats(card.name).deckCount"></span> DECKS</span>
+                                                <span><span class="opacity-100" x-text="getUsageStats(card.name).deckCount"></span> DECKS</span>
                                                 <span class="opacity-20">|</span>
-                                                <span><span class="val" x-text="getUsageStats(card.name).avail"></span> AVAIL</span>
+                                                <span><span class="opacity-100" x-text="getUsageStats(card.name).avail"></span> AVAIL</span>
                                             </div>
 
                                             <div class="flex items-center bg-black/40 rounded border border-white/5">
@@ -118,15 +123,6 @@
                                                 <button @click="adjustQty(card, 1)" class="px-3 py-1 text-steel hover:brand-blue transition">+</button>
                                             </div>
                                         </div>
-                                    </div>
-                                </template>
-                            </div>
-
-                            <div x-show="viewMode === 'visual'" class="grid grid-cols-4 md:grid-cols-5 gap-4">
-                                <template x-for="card in getCardsByCat(cat)" :key="card.id">
-                                    <div class="relative group cursor-pointer" @click="adjustQty(card, 1)" @contextmenu.prevent="adjustQty(card, -1)">
-                                        <img :src="card.image_uris?.normal" class="rounded-lg border-2 border-transparent hover:border-cyan-400 transition shadow-lg w-full">
-                                        <div class="absolute top-1 right-1 bg-black/80 brand-blue text-[10px] font-bold px-2 py-0.5 rounded border border-cyan-400/30" x-text="'x'+card.qty"></div>
                                     </div>
                                 </template>
                             </div>
@@ -166,7 +162,26 @@
                         const inDeck = d.cards.find(c => this.clean(c.name) === targetName);
                         if (inDeck) { deckCount++; totalUsedAcrossDecks += inDeck.qty; }
                     });
-                    return { deckCount, avail: totalOwned - totalUsedAcrossDecks };
+                    return { totalOwned, deckCount, avail: totalOwned - totalUsedAcrossDecks };
+                },
+
+                getStatusIcon(card) {
+                    const stats = this.getUsageStats(card.name);
+                    if (stats.totalOwned === 0) return '✕';
+                    if (stats.avail < 0) return '!';
+                    return '✓';
+                },
+
+                getStatusColor(card) {
+                    const stats = this.getUsageStats(card.name);
+                    if (stats.totalOwned === 0) return 'text-red-500';
+                    if (stats.avail < 0) return 'text-cyan-400';
+                    return 'text-green-400';
+                },
+
+                toggleCommander(card) {
+                    card.isCommander = !card.isCommander;
+                    this.save();
                 },
 
                 getDeckPrice() {
