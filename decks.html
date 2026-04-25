@@ -27,13 +27,10 @@
         
         .scroll-v { overflow-y: auto; height: calc(100vh - 280px); scrollbar-width: thin; scrollbar-color: var(--cyan) transparent; }
         .brand-blue { color: rgb(34, 211, 238); }
-        .progress-bar { height: 2px; background: var(--cyan); transition: width 0.3s; box-shadow: 0 0 10px var(--cyan); }
         .toast { position: fixed; bottom: 20px; right: 20px; background: #000; border-left: 4px solid var(--cyan); padding: 12px 24px; font-family: monospace; z-index: 5000; font-size: 10px; letter-spacing: 1px; }
 
-        .hud-counter { font-family: 'monospace'; font-size: 8px; letter-spacing: 1px; color: rgba(143, 169, 176, 0.4); background: rgba(255, 255, 255, 0.03); padding: 4px 10px; border-radius: 2px; }
-        .status-icon { font-size: 10px; width: 14px; font-weight: bold; }
-        .btn-cmdr { font-size: 8px; font-weight: 900; padding: 2px 4px; border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); cursor: pointer;}
-        .btn-cmdr.active { border-color: var(--cyan); color: var(--cyan); background: rgba(34, 211, 238, 0.1); }
+        .card-preview-float { position: fixed; z-index: 9000; width: 240px; pointer-events: none; border-radius: 12px; border: 1px solid rgba(34, 211, 238, 0.3); box-shadow: 0 0 20px rgba(0,0,0,0.8); }
+        .search-results { position: absolute; top: 100%; right: 0; width: 280px; background: #000; border: 1px solid var(--cyan); z-index: 5000; max-height: 400px; overflow-y: auto; }
         .category-header { font-family: 'Bebas Neue'; letter-spacing: 1px; color: var(--steel); border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 12px; padding-bottom: 2px; }
     </style>
 </head>
@@ -41,6 +38,8 @@
     
     <div id="custom-cursor"></div>
     <div x-show="toast.visible" x-text="toast.msg" class="toast uppercase italic" x-transition></div>
+
+    <img x-show="hoverCard" :src="hoverCard" class="card-preview-float" :style="`left: ${mouseX + 20}px; top: ${mouseY - 120}px`" x-transition:enter.opacity.30ms>
 
     <header class="panel px-6 py-4 flex justify-between items-center border-b border-cyan-400/20">
         <div class="flex items-center gap-6">
@@ -56,70 +55,78 @@
         </div>
     </header>
 
-    <div x-show="isImporting" class="w-full bg-white/5 h-[2px] fixed top-[72px] z-50">
-        <div class="progress-bar" :style="`width: ${progress}%`"></div>
-    </div>
-
     <main class="grid grid-cols-12 gap-4 p-4 h-[calc(100vh-80px)]">
         <div class="col-span-2 panel p-4 flex flex-col" @mouseenter="inSidebar = true" @mouseleave="inSidebar = false; isHovering = false">
             <button @click="createNewDeck()" class="w-full btn-primary text-xs mb-6">+ Initialise List</button>
             <div class="flex-1 overflow-y-auto">
-                <template x-for="(deck, index) in decks" :key="deck.id">
+                <template x-for="deck in decks" :key="deck.id">
                     <div class="group relative mb-2">
                         <div @click="activeDeck = deck" @mouseenter="isHovering = true" @mouseleave="isHovering = false" :class="activeDeck?.id === deck.id ? 'border-cyan-400 bg-cyan-400/5' : 'border-transparent opacity-60'" class="p-3 border-l-2 transition hover:opacity-100">
                             <div x-text="deck.name" class="font-bold text-sm uppercase truncate pr-8"></div>
                             <div class="text-[9px] font-mono brand-blue" x-text="countAllCards(deck) + ' UNITS'"></div>
                         </div>
-                        <button @click.stop="deleteDeck(deck.id)" class="absolute top-4 right-2 text-[8px] font-black text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">PURGE</button>
                     </div>
                 </template>
             </div>
         </div>
 
         <div class="col-span-10 flex flex-col gap-4" x-show="activeDeck">
-            <div class="panel p-6 grid grid-cols-3 items-center gap-4 relative overflow-hidden">
-                <div class="absolute top-[-20px] right-1/2 translate-x-1/2 opacity-5 font-mono text-[120px] leading-none select-none brand-blue" x-text="countAllCards(activeDeck)"></div>
+            <div class="panel p-6 grid grid-cols-3 items-center gap-4 relative">
                 <div><h2 class="text-4xl font-bold uppercase italic truncate" x-text="activeDeck.name"></h2></div>
-                <div class="flex flex-col items-center justify-center border-x border-white/5 h-full z-10">
-                    <p class="text-[10px] text-steel uppercase tracking-[0.3em] mb-1">Combat Readiness</p>
+                <div class="flex flex-col items-center justify-center border-x border-white/5 h-full">
                     <div class="flex gap-6 font-mono text-sm brand-blue font-bold">
                         <span>COUNT: <span x-text="countAllCards(activeDeck)"></span></span>
                         <span>VALUE: <span class="text-white">$<span x-text="getDeckPrice()"></span></span></span>
                     </div>
                 </div>
-                <div class="z-10 flex flex-col items-end gap-1">
-                    <input type="text" x-model="searchQuery" placeholder="QUERY DATABASE..." class="w-full max-w-[280px] bg-black/40 border border-cyan-400/20 p-2 text-xs font-mono focus:border-cyan-400 outline-none">
+                <div class="flex flex-col items-end gap-1 relative">
+                    <input type="text" x-model="searchQuery" @input.debounce.500ms="searchCards()" placeholder="QUERY DATABASE..." class="w-full max-w-[280px] bg-black/40 border border-cyan-400/20 p-2 text-xs font-mono focus:border-cyan-400 outline-none">
                     <button @click="showImportModal = true" class="text-[9px] text-steel hover:text-cyan-400 uppercase tracking-tighter transition-colors">>> Access Bulk Uplink Terminal</button>
+                    
+                    <div x-show="searchResults.length > 0" @click.away="searchResults = []" class="search-results shadow-2xl">
+                        <template x-for="res in searchResults" :key="res.id">
+                            <div @click="addCardToDeck(res)" @mouseenter="hoverCard = res.image_uris?.normal; isHovering = true" @mouseleave="hoverCard = null; isHovering = false" class="p-2 border-b border-white/5 hover:bg-cyan-400 hover:text-black cursor-pointer flex justify-between items-center transition-colors">
+                                <span class="text-[10px] font-bold uppercase truncate" x-text="res.name"></span>
+                                <span class="text-[8px] opacity-60 font-mono" x-text="'$' + (res.prices?.usd || '0.00')"></span>
+                            </div>
+                        </template>
+                    </div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-12 gap-4 flex-1 overflow-hidden">
-                <div class="col-span-12 scroll-v pr-2">
+            <div class="flex-1 overflow-hidden">
+                <div class="scroll-v pr-2">
                     <template x-for="cat in categories" :key="cat">
                         <div x-show="getCardsByCat(cat).length > 0" class="mb-8">
                             <h3 class="category-header text-sm flex justify-between">
                                 <span x-text="cat"></span>
                                 <span class="opacity-40" x-text="getCardsByCat(cat).reduce((a, b) => a + b.qty, 0)"></span>
                             </h3>
-                            <div class="grid grid-cols-1 gap-1">
+                            
+                            <div x-show="viewMode === 'list'" class="grid grid-cols-1 gap-1">
                                 <template x-for="card in getCardsByCat(cat)" :key="card.id">
                                     <div class="flex justify-between items-center py-1.5 hover:bg-white/[0.02] px-2 group rounded border-b border-white/[0.02]">
-                                        <div class="flex items-center gap-3 truncate">
-                                            <span class="status-icon" :class="getStatusColor(card)" x-text="getStatusIcon(card)"></span>
-                                            <div class="flex items-center gap-3">
-                                                <span x-text="card.name" class="text-xs font-bold truncate group-hover:brand-blue transition-colors"></span>
-                                                <button x-show="isCreature(card)" @click="setCommander(card)" class="btn-cmdr uppercase" :class="card.isCommander ? 'active' : ''" x-text="card.isCommander ? 'CMDR ACTIVE' : 'SET CMDR'"></button>
-                                            </div>
-                                            <button @click="removeCompletely(card)" class="opacity-0 group-hover:opacity-100 transition-opacity text-[8px] bg-red-900/20 text-red-400 px-1 hover:bg-red-500 hover:text-white uppercase font-bold">Delete</button>
-                                        </div>
+                                        <span @mouseenter="hoverCard = card.image_uris?.normal; isHovering = true" @mouseleave="hoverCard = null; isHovering = false" x-text="card.name" class="text-xs font-bold truncate group-hover:brand-blue transition-colors"></span>
                                         <div class="flex items-center gap-4">
-                                            <div class="hud-counter flex gap-2 items-center" :class="getUsageStats(card.name).avail < 0 ? 'deficit' : ''">
-                                                <span x-text="getUsageStats(card.name).deckCount"></span> DECKS | <span x-text="getUsageStats(card.name).avail"></span> AVAIL
-                                            </div>
                                             <div class="flex items-center bg-black/40 rounded border border-white/5">
                                                 <button @click="adjustQty(card, -1)" class="px-3 py-1 text-steel hover:brand-blue">-</button>
-                                                <span class="text-[10px] font-mono w-6 text-center border-x border-white/5" x-text="card.qty"></span>
+                                                <span class="text-[10px] font-mono w-6 text-center" x-text="card.qty"></span>
                                                 <button @click="adjustQty(card, 1)" class="px-3 py-1 text-steel hover:brand-blue">+</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <div x-show="viewMode === 'visual'" class="grid grid-cols-5 gap-4">
+                                <template x-for="card in getCardsByCat(cat)" :key="card.id">
+                                    <div class="relative group aspect-[3/4] rounded-lg overflow-hidden border border-white/10 hover:border-cyan-400 transition-all">
+                                        <img :src="card.image_uris?.normal" class="w-full h-full object-cover grayscale-[0.5] group-hover:grayscale-0">
+                                        <div class="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
+                                            <p class="text-[10px] font-bold uppercase truncate" x-text="card.name"></p>
+                                            <div class="flex justify-between items-center mt-2">
+                                                <span class="text-xs brand-blue" x-text="'x'+card.qty"></span>
+                                                <button @click="removeCompletely(card)" class="text-[8px] bg-red-600 text-white px-2 py-1 uppercase font-bold">Purge</button>
                                             </div>
                                         </div>
                                     </div>
@@ -134,11 +141,11 @@
 
     <div x-show="showImportModal" class="fixed inset-0 z-[6000] flex items-center justify-center p-6 bg-black/95 backdrop-blur-md" x-transition>
         <div class="panel w-full max-w-xl p-8 border-cyan-400/40">
-            <h3 class="text-2xl font-bold brand-blue mb-2" style="font-family: 'Bebas Neue'">LIST UPLINK</h3>
-            <textarea x-model="importRaw" placeholder="1 Sol Ring&#10;1 Arcane Signet" class="w-full h-64 bg-black/50 border border-white/10 p-4 font-mono text-xs focus:border-cyan-400 outline-none mb-6"></textarea>
+            <h3 class="text-2xl font-bold brand-blue mb-6">LIST UPLINK</h3>
+            <textarea x-model="importRaw" class="w-full h-64 bg-black/50 border border-white/10 p-4 font-mono text-xs focus:border-cyan-400 outline-none mb-6"></textarea>
             <div class="flex gap-4">
-                <button @click="showImportModal = false" class="flex-1 py-2 text-xs uppercase border border-white/10 hover:bg-white/5">Abort</button>
-                <button @click="processImport()" :disabled="isImporting" class="flex-1 btn-primary" x-text="isImporting ? 'SYNCING...' : 'INITIATE SYNC'"></button>
+                <button @click="showImportModal = false" class="flex-1 py-2 text-xs uppercase border border-white/10">Abort</button>
+                <button @click="processImport()" class="flex-1 btn-primary">Establish Sync</button>
             </div>
         </div>
     </div>
@@ -147,114 +154,52 @@
         function deckApp() {
             return {
                 decks: JSON.parse(localStorage.getItem('decks') || '[]'),
-                vault: JSON.parse(localStorage.getItem('forge_vault') || '[]'),
-                activeDeck: null, searchQuery: '', viewMode: 'list',
+                activeDeck: null, searchQuery: '', searchResults: [], viewMode: 'list',
+                hoverCard: null, mouseX: 0, mouseY: 0,
                 categories: ['Commander', 'Creature', 'Sorcery', 'Instant', 'Artifact', 'Enchantment', 'Planeswalker', 'Land'],
-                inSidebar: false, isHovering: false, showImportModal: false, importRaw: '', isImporting: false, progress: 0,
-                toast: { visible: false, msg: '' },
+                inSidebar: false, isHovering: false, showImportModal: false, importRaw: '', toast: { visible: false, msg: '' },
 
                 init() { if(this.decks.length) this.activeDeck = this.decks[0]; },
                 notify(msg) { this.toast = { visible: true, msg }; setTimeout(() => this.toast.visible = false, 3000); },
                 save() { localStorage.setItem('decks', JSON.stringify(this.decks)); },
 
-                async processImport() {
-                    if(!this.activeDeck || !this.importRaw.trim()) return;
-                    this.isImporting = true; this.progress = 5;
-                    
-                    const lines = this.importRaw.split('\n').filter(l => l.trim());
-                    const parsedData = lines.map(line => {
-                        const m = line.match(/^(\d+)x?\s+(.+)/i);
-                        return m ? { name: m[2].trim(), qty: parseInt(m[1]) } : { name: line.trim(), qty: 1 };
-                    }).slice(0, 125);
-
+                async searchCards() {
+                    if(this.searchQuery.length < 3) { this.searchResults = []; return; }
                     try {
-                        // We use the 'collection' endpoint but handle 400s by filtering unknown names
-                        const response = await fetch('https://api.scryfall.com/cards/collection', {
-                            method: 'POST', headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({ 
-                                identifiers: parsedData.map(p => ({ name: p.name })),
-                                // Use search logic if names aren't exact
-                                ignore_invalid: true 
-                            })
+                        const res = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(this.searchQuery)}`);
+                        const data = await res.json();
+                        this.searchResults = data.data?.slice(0, 10) || [];
+                    } catch(e) { console.error("Search Fail"); }
+                },
+
+                addCardToDeck(card) {
+                    let existing = this.activeDeck.cards.find(c => c.id === card.id);
+                    if(existing) existing.qty++;
+                    else {
+                        this.activeDeck.cards.push({
+                            id: card.id, name: card.name, qty: 1, isCommander: false,
+                            image_uris: card.image_uris, type_line: card.type_line, prices: card.prices
                         });
-                        
-                        if (!response.ok) throw new Error("Sync Handshake Failed");
-
-                        const result = await response.json();
-                        this.progress = 60;
-
-                        if (result.data) {
-                            result.data.forEach((card, index) => {
-                                if (card && card.id) {
-                                    // Scryfall results might not match index if some failed, 
-                                    // so we find the original qty by fuzzy matching names
-                                    const requestMatch = parsedData.find(p => p.name.toLowerCase() === card.name.toLowerCase()) || {qty: 1};
-                                    
-                                    let existing = this.activeDeck.cards.find(c => c.name === card.name);
-                                    if (existing) {
-                                        existing.qty += requestMatch.qty;
-                                    } else {
-                                        this.activeDeck.cards.push({
-                                            id: card.id, name: card.name, qty: requestMatch.qty,
-                                            isCommander: false, image_uris: card.image_uris,
-                                            type_line: card.type_line, prices: card.prices
-                                        });
-                                    }
-                                }
-                            });
-                            this.progress = 100;
-                            this.notify("SYNC SUCCESSFUL");
-                            this.save();
-                            this.showImportModal = false;
-                            this.importRaw = '';
-                        }
-                    } catch (err) {
-                        console.error("Import Error:", err);
-                        this.notify("SYNC ERROR: CHECK NAMES");
-                    } finally {
-                        setTimeout(() => { this.isImporting = false; this.progress = 0; }, 800);
                     }
+                    this.save();
+                    this.notify("UNIT ADDED");
                 },
 
                 moveCursor(e) {
-                    if(!this.inSidebar) return;
-                    const c = document.getElementById('custom-cursor');
-                    c.style.left = e.clientX+'px'; c.style.top = e.clientY+'px';
-                },
-                deleteDeck(id) {
-                    if(confirm("PURGE DATA?")) {
-                        this.decks = this.decks.filter(d => d.id !== id);
-                        if(this.activeDeck?.id === id) this.activeDeck = this.decks[0] || null;
-                        this.save();
+                    this.mouseX = e.clientX; this.mouseY = e.clientY;
+                    if(this.inSidebar) {
+                        const c = document.getElementById('custom-cursor');
+                        c.style.left = e.clientX+'px'; c.style.top = e.clientY+'px';
                     }
                 },
-                clean(n) {
-                    const b = ['forest', 'island', 'swamp', 'mountain', 'plains'];
-                    let nm = n.split(' // ')[0].replace(/[^\w\s]/gi, '').toLowerCase().trim();
-                    return b.find(x => nm.includes(x)) || nm;
-                },
-                isCreature(c) { return c.type_line?.toLowerCase().includes('creature'); },
-                getUsageStats(name) {
-                    const t = this.clean(name);
-                    const own = this.vault.reduce((s, v) => this.clean(v.name) === t ? s + v.qty : s, 0);
-                    let used = 0, count = 0;
-                    this.decks.forEach(d => {
-                        const c = d.cards.find(x => this.clean(x.name) === t);
-                        if(c) { count++; used += c.qty; }
-                    });
-                    return { totalOwned: own, deckCount: count, avail: own - used };
-                },
-                getStatusIcon(c) { const s = this.getUsageStats(c.name); return s.totalOwned === 0 ? '✕' : (s.avail < 0 ? '!' : '✓'); },
-                getStatusColor(c) { const s = this.getUsageStats(c.name); return s.totalOwned === 0 ? 'text-red-500' : (s.avail < 0 ? 'text-cyan-400' : 'text-green-400'); },
-                setCommander(c) { if(!this.isCreature(c)) return; this.activeDeck.cards.forEach(x => x.isCommander = false); c.isCommander = true; this.save(); },
-                getDeckPrice() { return this.activeDeck?.cards?.reduce((s, c) => s + (parseFloat(c.prices?.usd || 0)*c.qty), 0).toFixed(2) || '0.00'; },
-                adjustQty(c, v) { c.qty += v; if(c.qty <= 0) this.removeCompletely(c); this.save(); },
-                removeCompletely(c) { this.activeDeck.cards = this.activeDeck.cards.filter(x => x.id !== c.id); this.save(); },
                 getCardsByCat(cat) {
                     if(!this.activeDeck?.cards) return [];
                     return this.activeDeck.cards.filter(c => cat === 'Commander' ? c.isCommander : (!c.isCommander && c.type_line.includes(cat)));
                 },
                 countAllCards(d) { return d?.cards?.reduce((s, c) => s + c.qty, 0) || 0; },
+                getDeckPrice() { return this.activeDeck?.cards?.reduce((s, c) => s + (parseFloat(c.prices?.usd || 0)*c.qty), 0).toFixed(2) || '0.00'; },
+                adjustQty(c, v) { c.qty += v; if(c.qty <= 0) this.removeCompletely(c); this.save(); },
+                removeCompletely(c) { this.activeDeck.cards = this.activeDeck.cards.filter(x => x.id !== c.id); this.save(); },
                 createNewDeck() {
                     const n = prompt("Terminal ID:");
                     if(n) { const d = {id: Date.now(), name: n, cards: []}; this.decks.push(d); this.activeDeck = d; this.save(); }
