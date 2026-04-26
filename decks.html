@@ -37,7 +37,10 @@
         
         .hud-counter { font-family: 'monospace'; font-size: 8px; color: rgba(143, 169, 176, 0.7); background: rgba(0, 0, 0, 0.8); padding: 2px 6px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.1); }
         .hud-counter.deficit { background: rgba(235, 95, 122, 0.6); color: white; border: 1px solid var(--warn); }
-        .cmdr-tag { background: var(--cyan); color: black; font-family: 'Bebas Neue'; padding: 2px 8px; font-size: 10px; clip-path: polygon(10% 0, 100% 0, 100% 100%, 0 100%); }
+        
+        /* COMMANDER HUD STYLE */
+        .cmdr-block { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(4px); color: white; font-family: 'Bebas Neue'; padding: 4px 12px; font-size: 11px; border-radius: 4px; letter-spacing: 1px; border: 1px solid rgba(255, 255, 255, 0.15); }
+        .cmdr-btn:hover { background: rgba(255, 255, 255, 0.25); border-color: white; }
 
         .search-results-container { position: fixed; background: rgba(17, 28, 30, 0.98); border: 1px solid rgba(34, 211, 238, 0.4); z-index: 5000; margin-top: 5px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); backdrop-filter: blur(15px); max-height: 400px; overflow-y: auto; }
 
@@ -46,13 +49,11 @@
         .visual-card-wrapper { position: relative; transition: transform 0.2s ease; }
         .visual-card-wrapper:hover { transform: scale(1.05); z-index: 10; }
         .visual-card { width: 100%; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 20px rgba(0,0,0,0.4); }
-        .visual-card.is-cmdr { border: 2px solid var(--cyan); box-shadow: 0 0 15px var(--cyan); }
+        .visual-card.is-cmdr { border: 2px solid var(--cyan); box-shadow: 0 0 15px rgba(34, 211, 238, 0.4); }
 
         .import-banner { position: fixed; bottom: 0; right: 20px; width: 400px; z-index: 4000; border: 1px solid rgba(34, 211, 238, 0.3); border-bottom: none; background: rgba(17, 28, 30, 0.95); backdrop-filter: blur(10px); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .import-banner.collapsed { transform: translateY(calc(100% - 32px)); }
         .banner-header { height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; background: rgba(34, 211, 238, 0.05); }
-        .btn-mini { font-size: 7px; border: 1px solid rgba(34, 211, 238, 0.3); padding: 1px 4px; border-radius: 2px; color: var(--cyan); }
-        .btn-mini:hover { background: var(--cyan); color: black; }
     </style>
 </head>
 <body x-data="deckApp()" x-init="init()" @mousemove="moveCursor($event)" :class="{'sidebar-active': inSidebar, 'cursor-hover': isHovering}">
@@ -119,19 +120,16 @@
                     <div>
                         <template x-for="cat in categories" :key="cat">
                             <div x-show="getCardsByCat(cat).length > 0" class="mb-8">
-                                <h3 class="category-header text-sm flex justify-between">
-                                    <span x-text="cat"></span>
-                                </h3>
+                                <h3 class="category-header text-sm flex justify-between"><span x-text="cat"></span></h3>
                                 <div class="grid grid-cols-1 gap-1">
                                     <template x-for="card in getCardsByCat(cat)" :key="card.id">
                                         <div class="flex justify-between items-center py-1.5 hover:bg-white/[0.02] px-2 group rounded border-b border-white/[0.02]">
                                             <div class="flex items-center gap-3">
                                                 <span class="status-icon font-mono text-[10px]" :class="getStatusColor(card)" x-text="getStatusIcon(card)"></span>
-                                                <span @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()" :class="card.isCommander ? 'text-cyan-400 italic underline' : ''" x-text="card.name" class="text-xs font-bold truncate group-hover:brand-blue transition-colors"></span>
-                                                <span x-show="card.isCommander" class="text-[8px] border border-cyan-400/40 px-1 rounded text-cyan-400">CMDR</span>
+                                                <span @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()" :class="card.isCommander ? 'text-cyan-400' : ''" x-text="card.name" class="text-xs font-bold truncate group-hover:brand-blue transition-colors"></span>
                                             </div>
                                             <div class="flex items-center gap-4">
-                                                <button x-show="card.type_line.includes('Creature') || card.type_line.includes('Planeswalker')" @click="setCommander(card)" class="text-[8px] font-black tracking-tighter text-steel hover:text-cyan-400 transition" x-text="card.isCommander ? '' : 'SET CMDR'"></button>
+                                                <button x-show="(card.type_line.includes('Creature') || card.type_line.includes('Planeswalker'))" @click="setCommander(card)" class="cmdr-block cmdr-btn text-[9px] py-1" x-text="card.isCommander ? 'CMDR' : 'SET CMDR'"></button>
                                                 <div class="hud-counter" :class="getUsageStats(card.name).avail < 0 ? 'deficit' : ''" x-text="getUsageStats(card.name).avail + ' AVAIL'"></div>
                                                 <div class="flex items-center bg-black/40 rounded border border-white/5">
                                                     <button @click="adjustQty(card, -1)" class="px-3 py-1 text-steel hover:brand-blue">-</button>
@@ -157,8 +155,8 @@
                                         <div class="visual-card-wrapper group">
                                             <img :src="card.image_uris?.normal" class="visual-card" :class="card.isCommander ? 'is-cmdr' : ''">
                                             
-                                            <div x-show="card.isCommander" class="absolute -top-2 -right-1 z-20">
-                                                <div class="cmdr-tag">COMMANDER</div>
+                                            <div x-show="card.isCommander" class="absolute bottom-4 left-0 right-0 flex justify-center z-20">
+                                                <div class="cmdr-block">CMDR</div>
                                             </div>
 
                                             <div class="absolute top-2 left-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -171,7 +169,7 @@
                                                     <button @click="adjustQty(card, -1)" class="bg-black/90 border border-cyan-400/40 w-10 h-10 rounded-full flex items-center justify-center text-xl hover:bg-cyan-400 hover:text-black transition">-</button>
                                                     <button @click="adjustQty(card, 1)" class="bg-black/90 border border-cyan-400/40 w-10 h-10 rounded-full flex items-center justify-center text-xl hover:bg-cyan-400 hover:text-black transition">+</button>
                                                 </div>
-                                                <button x-show="!card.isCommander && (card.type_line.includes('Creature') || card.type_line.includes('Planeswalker'))" @click="setCommander(card)" class="bg-cyan-400 text-black px-4 py-1 text-[10px] font-black uppercase tracking-widest clip-path:polygon(0 0, 90% 0, 100% 30%, 100% 100%, 10% 100%, 0 70%)">SET CMDR</button>
+                                                <button x-show="!card.isCommander && (card.type_line.includes('Creature') || card.type_line.includes('Planeswalker'))" @click="setCommander(card)" class="cmdr-block cmdr-btn">SET CMDR</button>
                                             </div>
                                         </div>
                                     </template>
@@ -183,27 +181,6 @@
             </div>
         </div>
     </main>
-
-    <div class="import-banner" :class="terminalOpen ? '' : 'collapsed'" x-show="activeDeck" x-data="{ terminalOpen: false, rawList: '', isProcessing: false }">
-        <div class="banner-header" @click="terminalOpen = !terminalOpen">
-            <span class="text-[10px] font-black tracking-widest brand-blue flex items-center gap-2">
-                <span x-text="terminalOpen ? '▼' : '▲'"></span> BULK UPLINK TERMINAL
-            </span>
-            <span x-show="isProcessing" class="text-[8px] animate-pulse">SYNCHRONIZING...</span>
-        </div>
-        <div class="p-4">
-            <div class="flex justify-between items-center mb-2">
-                <p class="text-[9px] text-steel uppercase font-mono tracking-tighter">Enter Card List</p>
-                <button @click="rawList = formatRawList(rawList)" class="btn-mini uppercase font-black">Format List</button>
-            </div>
-            <textarea x-model="rawList" class="w-full h-32 border border-cyan-400/20 p-2 text-[10px] font-mono text-cyan-200 outline-none focus:border-cyan-400 mb-3 bg-black/40"></textarea>
-            <div class="flex gap-2">
-                <button @click="processImport($data)" :disabled="isProcessing" class="flex-1 btn-primary text-[10px]">INTEGRATE UNITS</button>
-                <button @click="rawList = ''" class="px-3 py-1 border border-white/10 text-steel text-[10px] uppercase hover:text-white transition">Clear</button>
-            </div>
-        </div>
-    </div>
-
     <script>
         function deckApp() {
             return {
@@ -213,16 +190,13 @@
                 categories: ['Commander', 'Creature', 'Sorcery', 'Instant', 'Artifact', 'Enchantment', 'Planeswalker', 'Land'],
                 hoverPreview: { visible: false, url: '', x: 0, y: 0 },
                 dragSrcIndex: null, dragOverIndex: null, inSidebar: false, isHovering: false,
-
                 init() { if(this.decks.length) this.activeDeck = this.decks[0]; },
                 moveCursor(e) { if(!this.inSidebar) return; const c = document.getElementById('custom-cursor'); c.style.left = e.clientX+'px'; c.style.top = e.clientY+'px'; },
-
                 setCommander(targetCard) {
                     this.activeDeck.cards.forEach(c => c.isCommander = false);
                     targetCard.isCommander = true;
                     this.save();
                 },
-
                 handleDragStart(index) { this.dragSrcIndex = index; },
                 handleDrop() {
                     if (this.dragSrcIndex !== null && this.dragOverIndex !== null) {
@@ -239,49 +213,6 @@
                         this.save();
                     }
                 },
-                formatRawList(text) {
-                    return text.split('\n').map(line => {
-                        const match = line.match(/^(\d+)\x20+([^\[\(\-]+)/);
-                        if (match) return `${match[1]} ${match[2].trim()}`;
-                        return line;
-                    }).join('\n');
-                },
-                async processImport(comp) {
-                    if(!this.activeDeck || !comp.rawList.trim()) return;
-                    comp.isProcessing = true;
-                    const lines = comp.rawList.split('\n').filter(l => l.trim());
-                    for(let line of lines) {
-                        const match = line.match(/^(\d+)\x20+(.+)$/);
-                        if(!match) continue;
-                        let qty = parseInt(match[1]);
-                        let searchStr = match[2].trim();
-                        try {
-                            const res = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(searchStr)}`);
-                            const data = await res.json();
-                            if(data.id) {
-                                const existing = this.activeDeck.cards.find(c => c.id === data.id);
-                                if(existing) existing.qty += qty;
-                                else this.activeDeck.cards.push({...data, qty: qty, isCommander: false});
-                            }
-                            await new Promise(r => setTimeout(r, 100));
-                        } catch(e) { console.error(e); }
-                    }
-                    this.save(); comp.rawList = ''; comp.isProcessing = false; comp.terminalOpen = false;
-                },
-                clean(n) { return n ? n.split(' // ')[0].replace(/[^\w\s]/gi, '').toLowerCase().trim() : ""; },
-                getUsageStats(name) {
-                    const target = this.clean(name);
-                    const total = this.vault.reduce((s, v) => this.clean(v.name) === target ? s + v.qty : s, 0);
-                    let used = 0;
-                    this.decks.forEach(d => {
-                        const c = d.cards.find(x => this.clean(x.name) === target);
-                        if (c) used += c.qty;
-                    });
-                    return { total, avail: total - used };
-                },
-                getStatusIcon(card) { const s = this.getUsageStats(card.name); return s.total === 0 ? '✕' : (s.avail < 0 ? '!' : '✓'); },
-                getStatusColor(card) { const s = this.getUsageStats(card.name); return s.total === 0 ? 'text-red-500' : (s.avail < 0 ? 'text-cyan-400' : 'text-green-400'); },
-                getDeckPrice() { return (this.activeDeck?.cards?.reduce((s, c) => s + (parseFloat(c.prices?.usd || 0) * c.qty), 0) || 0).toFixed(2); },
                 async searchCards() {
                     if(this.searchQuery.length < 2) { this.searchResults = []; return; }
                     const res = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(this.searchQuery)}`);
@@ -298,6 +229,20 @@
                     if (cat === 'Commander') return this.activeDeck?.cards?.filter(c => c.isCommander) || [];
                     return this.activeDeck?.cards?.filter(c => c.type_line.includes(cat) && !c.isCommander) || []; 
                 },
+                clean(n) { return n ? n.split(' // ')[0].replace(/[^\w\s]/gi, '').toLowerCase().trim() : ""; },
+                getUsageStats(name) {
+                    const target = this.clean(name);
+                    const total = this.vault.reduce((s, v) => this.clean(v.name) === target ? s + v.qty : s, 0);
+                    let used = 0;
+                    this.decks.forEach(d => {
+                        const c = d.cards.find(x => this.clean(x.name) === target);
+                        if (c) used += c.qty;
+                    });
+                    return { total, avail: total - used };
+                },
+                getStatusIcon(card) { const s = this.getUsageStats(card.name); return s.total === 0 ? '✕' : (s.avail < 0 ? '!' : '✓'); },
+                getStatusColor(card) { const s = this.getUsageStats(card.name); return s.total === 0 ? 'text-red-500' : (s.avail < 0 ? 'text-cyan-400' : 'text-green-400'); },
+                getDeckPrice() { return (this.activeDeck?.cards?.reduce((s, c) => s + (parseFloat(c.prices?.usd || 0) * c.qty), 0) || 0).toFixed(2); },
                 countAllCards(d) { return d?.cards?.reduce((s, c) => s + c.qty, 0) || 0; },
                 save() { localStorage.setItem('decks', JSON.stringify(this.decks)); },
                 showPreview(e, url) { this.hoverPreview = { visible: true, url, x: e.clientX, y: e.clientY }; },
