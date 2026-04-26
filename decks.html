@@ -38,6 +38,9 @@
         /* HUD & STATUS ELEMENTS */
         .hud-block { font-family: 'Bebas Neue'; padding: 3px 10px; font-size: 10px; border-radius: 4px; letter-spacing: 1px; transition: 0.2s; border: 1px solid rgba(255, 255, 255, 0.1); }
         
+        /* Refined Mini Commander Button */
+        .btn-cmdr-mini { font-family: 'Bebas Neue'; padding: 1px 6px; font-size: 8px; border-radius: 3px; letter-spacing: 0.5px; transition: 0.2s; border: 1px solid rgba(255, 255, 255, 0.1); }
+
         .avail-counter { background: rgba(255, 255, 255, 0.05); color: var(--steel); }
         .avail-counter.deficit { background: rgba(235, 95, 122, 0.2); color: var(--warn); border-color: rgba(235, 95, 122, 0.3); }
         .avail-counter.ok { color: var(--cyan); border-color: rgba(34, 211, 238, 0.2); }
@@ -133,7 +136,7 @@
                                                 <span class="status-icon font-mono text-[10px]" :class="getStatusColor(card)" x-text="getStatusIcon(card)"></span>
                                                 <button x-show="(card.type_line.includes('Creature') || card.type_line.includes('Planeswalker'))" 
                                                         @click="setCommander(card)" 
-                                                        class="hud-block text-[9px]" 
+                                                        class="btn-cmdr-mini" 
                                                         :class="card.isCommander ? 'cmdr-active' : 'cmdr-inactive'"
                                                         x-text="card.isCommander ? 'CMDR' : 'SET CMDR'"></button>
                                                 <span @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()" :class="card.isCommander ? 'text-cyan-400' : ''" x-text="card.name" class="text-xs font-bold truncate group-hover:brand-blue transition-colors"></span>
