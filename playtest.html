@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><title>FORGE // NEURAL LINK</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --gunmetal: #111c1e; --dark: #1a2527; --cyan: #22d3ee; --steel: #8fa9b0; --warn: #eb5f7a; --ok: #4ade80; }
+        body { background: var(--gunmetal); color: #e8eef0; font-family: 'Rajdhani', sans-serif; overflow: hidden; height: 100vh; }
+        .panel { background: var(--dark); border: 1px solid rgba(34, 211, 238, 0.1); }
+        .battlefield { position: relative; height: calc(100vh - 180px); background-image: radial-gradient(circle, rgba(34, 211, 238, 0.05) 1px, transparent 1px); background-size: 30px 30px; }
+        .land-line { position: absolute; bottom: 30%; left: 0; right: 0; border-top: 1px dashed rgba(34, 211, 238, 0.2); pointer-events: none; }
+        .card-obj { position: absolute; width: 100px; cursor: grab; transition: transform 0.1s, box-shadow 0.2s; z-index: 10; }
+        .card-obj:active { cursor: grabbing; z-index: 100; }
+        .card-img { width: 100%; border-radius: 6px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); }
+        .zone-panel { height: 160px; background: rgba(17, 28, 30, 0.9); border-top: 2px solid var(--cyan); }
+        .card-hand { width: 80px; flex-shrink: 0; transition: transform 0.2s; cursor: pointer; }
+        .card-hand:hover { transform: translateY(-20px); z-index: 50; }
+        .zoom-overlay { position: fixed; bottom: 180px; left: 20px; width: 260px; pointer-events: none; z-index: 5000; }
+        .dice-counter { position: absolute; top: -10px; right: -10px; background: #000; border: 1px solid var(--cyan); color: var(--cyan); font-size: 10px; padding: 2px 5px; border-radius: 4px; font-weight: bold; }
+        .hud-text { font-family: 'Bebas Neue'; letter-spacing: 1px; }
+    </style>
+</head>
+<body x-data="playtestApp()" x-init="init()">
+
+    <header class="h-16 panel flex justify-between items-center px-6 border-b border-cyan-400/20">
+        <div class="flex items-center gap-6">
+            <span class="text-2xl font-bold brand-blue hud-text">NEURAL LINK // <span x-text="activeDeck?.name"></span></span>
+            <div class="flex items-center bg-black/40 border border-white/10 rounded px-4 py-1 gap-4">
+                <span class="text-xs text-steel hud-text">VITAL SIGNS:</span>
+                <button @click="life--" class="text-warn text-xl hover:scale-125">-</button>
+                <span class="text-2xl font-bold font-mono w-12 text-center" x-text="life" :class="life < 10 ? 'text-warn' : 'text-cyan-400'"></span>
+                <button @click="life++" class="text-ok text-xl hover:scale-125">+</button>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <div class="text-right">
+                <p class="text-[9px] text-steel hud-text">COMMANDER UNIT</p>
+                <p class="text-xs font-bold" x-text="commander?.name || 'NO CMDR'"></p>
+            </div>
+            <div class="relative group cursor-pointer" @click="playCommander()">
+                <img :src="commander?.image_uris?.small" class="w-12 h-16 rounded border border-cyan-400/50 shadow-[0_0_10px_rgba(34,211,238,0.3)]">
+                <div class="absolute inset-0 bg-cyan-400/20 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[10px] font-bold">DEPLOY</div>
+            </div>
+        </div>
+    </header>
+
+    <main class="battlefield overflow-hidden" @dragover.prevent @drop="dropOnBattlefield($event)">
+        <div class="land-line"></div>
+        <div class="absolute bottom-[32%] left-4 text-[10px] text-steel font-bold tracking-widest opacity-30">RESOURCES // LANDS</div>
+        
+        <template x-for="(card, index) in battlefield" :key="card.instanceId">
+            <div class="card-obj" 
+                 :style="`left: ${card.x}px; top: ${card.y}px; transform: rotate(${card.tapped ? '90deg' : '0deg'})`"
+                 @mousedown="startDrag($event, card)"
+                 @contextmenu.prevent="card.tapped = !card.tapped"
+                 @mouseenter="hoveredCard = card"
+                 @mouseleave="hoveredCard = null">
+                
+                <div class="dice-counter" @click.stop="card.counters++" @contextmenu.stop.prevent="card.counters > 0 ? card.counters-- : null" x-show="card.counters > 0 || hoveredCard === card">
+                    D6: <span x-text="card.counters"></span>
+                </div>
+
+                <img :src="card.image_uris?.normal" class="card-img" :class="card.tapped ? 'opacity-80' : ''">
+            </div>
+        </template>
+    </main>
+
+    <div class="zoom-overlay panel p-4 bg-black/80 backdrop-blur-md border-cyan-400/40" x-show="hoveredCard" x-transition>
+        <img :src="hoveredCard?.image_uris?.normal" class="w-full rounded mb-3">
+        <h3 class="text-cyan-400 font-bold hud-text" x-text="hoveredCard?.name"></h3>
+        <p class="text-[10px] text-steel mb-2" x-text="hoveredCard?.type_line"></p>
+        <p class="text-[11px] leading-tight text-white/80 font-mono" x-text="hoveredCard?.oracle_text"></p>
+        <div x-show="hoveredCard?.power" class="mt-2 text-right font-bold text-cyan-400" x-text="hoveredCard?.power + '/' + hoveredCard?.toughness"></div>
+    </div>
+
+    <footer class="zone-panel fixed bottom-0 left-0 right-0 p-4 flex gap-6">
+        <div class="flex gap-4 border-r border-white/10 pr-6">
+            <div class="flex flex-col items-center gap-1">
+                <div @click="drawCard()" class="w-20 h-28 bg-cyan-900/20 border-2 border-dashed border-cyan-400/30 rounded flex flex-col items-center justify-center cursor-pointer hover:bg-cyan-400/10">
+                    <span class="text-2xl font-bold" x-text="library.length"></span>
+                    <span class="text-[10px] hud-text">DRAW</span>
+                </div>
+                <button @click="shuffleLibrary()" class="text-[10px] text-steel hover:text-cyan-400 uppercase">Shuffle</button>
+            </div>
+
+            <div class="flex flex-col items-center gap-1">
+                <div @click="showGraveyard = true" class="w-20 h-28 bg-black/40 border border-white/10 rounded flex flex-col items-center justify-center cursor-pointer hover:border-cyan-400/50">
+                    <span class="text-2xl font-bold" x-text="graveyard.length"></span>
+                    <span class="text-[10px] hud-text">GRAVE</span>
+                </div>
+                <button @click="showExile = true" class="text-[10px] text-steel hover:text-warn uppercase">Exile (<span x-text="exile.length"></span>)</button>
+            </div>
+        </div>
+
+        <div class="flex-1 flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+            <template x-for="(card, index) in hand" :key="card.instanceId">
+                <img :src="card.image_uris?.normal" 
+                     class="card-hand rounded shadow-lg border border-white/10" 
+                     @click="playFromHand(index)"
+                     @mouseenter="hoveredCard = card"
+                     @mouseleave="hoveredCard = null"
+                     draggable="true"
+                     @dragstart="handleHandDrag($event, index)">
+            </template>
+        </div>
+    </header>
+
+    <div x-show="showGraveyard || showExile" class="fixed inset-0 bg-black/90 z-[6000] p-10 flex flex-col">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-3xl hud-text brand-blue" x-text="showGraveyard ? 'GRAVEYARD MANIFEST' : 'EXILE VOID'"></h2>
+            <button @click="showGraveyard = false; showExile = false" class="text-warn font-black">CLOSE [X]</button>
+        </div>
+        <div class="grid grid-cols-6 gap-6 overflow-y-auto p-4">
+            <template x-for="(card, index) in (showGraveyard ? graveyard : exile)" :key="card.instanceId">
+                <div class="relative group">
+                    <img :src="card.image_uris?.normal" class="w-full rounded border border-white/10">
+                    <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2 transition">
+                        <button @click="recoverCard(index, 'battlefield')" class="btn-primary text-[10px] w-24">TO FIELD</button>
+                        <button @click="recoverCard(index, 'hand')" class="btn-primary text-[10px] w-24">TO HAND</button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <script>
+        function playtestApp() {
+            return {
+                activeDeck: null,
+                library: [],
+                hand: [],
+                battlefield: [],
+                graveyard: [],
+                exile: [],
+                commander: null,
+                life: 40,
+                hoveredCard: null,
+                showGraveyard: false,
+                showExile: false,
+                draggingCard: null,
+
+                init() {
+                    const decks = JSON.parse(localStorage.getItem('decks') || '[]');
+                    if(decks.length) {
+                        this.activeDeck = decks[0]; // Logic to select specific deck can be added
+                        this.setupGame();
+                    }
+                },
+
+                setupGame() {
+                    // Flatten deck into library based on qty
+                    let flat = [];
+                    this.activeDeck.cards.forEach(c => {
+                        if(c.isCommander) {
+                            this.commander = {...c, instanceId: Date.now() + Math.random()};
+                        } else {
+                            for(let i=0; i<c.qty; i++) {
+                                flat.push({...c, instanceId: Date.now() + Math.random(), tapped: false, x: 0, y: 0, counters: 0});
+                            }
+                        }
+                    });
+                    this.library = flat.sort(() => Math.random() - 0.5);
+                },
+
+                drawCard() {
+                    if(this.library.length > 0) this.hand.push(this.library.shift());
+                },
+
+                shuffleLibrary() {
+                    this.library.sort(() => Math.random() - 0.5);
+                },
+
+                playFromHand(index) {
+                    const card = this.hand.splice(index, 1)[0];
+                    card.x = 200 + (this.battlefield.length * 20);
+                    card.y = 100;
+                    this.battlefield.push(card);
+                },
+
+                playCommander() {
+                    if(!this.commander) return;
+                    const c = {...this.commander, x: 500, y: 50, instanceId: Date.now()};
+                    this.battlefield.push(c);
+                },
+
+                startDrag(e, card) {
+                    this.draggingCard = card;
+                    const offsetX = e.clientX - card.x;
+                    const offsetY = e.clientY - card.y;
+
+                    const move = (e) => {
+                        card.x = e.clientX - offsetX;
+                        card.y = e.clientY - offsetY;
+                    };
+
+                    const stop = () => {
+                        // Check if dropped in Grave/Exile zone (bottom UI)
+                        if(card.y > window.innerHeight - 180) {
+                            this.battlefield = this.battlefield.filter(c => c.instanceId !== card.instanceId);
+                            if(e.clientX < 300) this.graveyard.push(card);
+                            else this.exile.push(card);
+                        }
+                        window.removeEventListener('mousemove', move);
+                        window.removeEventListener('mouseup', stop);
+                        this.draggingCard = null;
+                    };
+
+                    window.addEventListener('mousemove', move);
+                    window.addEventListener('mouseup', stop);
+                },
+
+                handleHandDrag(e, index) {
+                    e.dataTransfer.setData('handIndex', index);
+                },
+
+                dropOnBattlefield(e) {
+                    const handIndex = e.dataTransfer.getData('handIndex');
+                    if(handIndex !== "") {
+                        const card = this.hand.splice(handIndex, 1)[0];
+                        card.x = e.clientX - 50;
+                        card.y = e.clientY - 70;
+                        this.battlefield.push(card);
+                    }
+                },
+
+                recoverCard(index, target) {
+                    let card;
+                    if(this.showGraveyard) card = this.graveyard.splice(index, 1)[0];
+                    else card = this.exile.splice(index, 1)[0];
+
+                    if(target === 'hand') this.hand.push(card);
+                    else {
+                        card.x = 300; card.y = 300;
+                        this.battlefield.push(card);
+                    }
+                    this.showGraveyard = false; this.showExile = false;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
