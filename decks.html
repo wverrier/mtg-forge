@@ -37,15 +37,16 @@
         
         .hud-counter { font-family: 'monospace'; font-size: 8px; color: rgba(143, 169, 176, 0.7); background: rgba(0, 0, 0, 0.8); padding: 2px 6px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.1); }
         .hud-counter.deficit { background: rgba(235, 95, 122, 0.6); color: white; border: 1px solid var(--warn); }
-        
+        .cmdr-tag { background: var(--cyan); color: black; font-family: 'Bebas Neue'; padding: 2px 8px; font-size: 10px; clip-path: polygon(10% 0, 100% 0, 100% 100%, 0 100%); }
+
         .search-results-container { position: fixed; background: rgba(17, 28, 30, 0.98); border: 1px solid rgba(34, 211, 238, 0.4); z-index: 5000; margin-top: 5px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); backdrop-filter: blur(15px); max-height: 400px; overflow-y: auto; }
 
-        /* VISUAL GRID REBOOT */
         .visual-section { margin-bottom: 40px; }
         .visual-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 20px; }
         .visual-card-wrapper { position: relative; transition: transform 0.2s ease; }
         .visual-card-wrapper:hover { transform: scale(1.05); z-index: 10; }
         .visual-card { width: 100%; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 20px rgba(0,0,0,0.4); }
+        .visual-card.is-cmdr { border: 2px solid var(--cyan); box-shadow: 0 0 15px var(--cyan); }
 
         .import-banner { position: fixed; bottom: 0; right: 20px; width: 400px; z-index: 4000; border: 1px solid rgba(34, 211, 238, 0.3); border-bottom: none; background: rgba(17, 28, 30, 0.95); backdrop-filter: blur(10px); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .import-banner.collapsed { transform: translateY(calc(100% - 32px)); }
@@ -118,15 +119,19 @@
                     <div>
                         <template x-for="cat in categories" :key="cat">
                             <div x-show="getCardsByCat(cat).length > 0" class="mb-8">
-                                <h3 class="category-header text-sm flex justify-between"><span x-text="cat"></span></h3>
+                                <h3 class="category-header text-sm flex justify-between">
+                                    <span x-text="cat"></span>
+                                </h3>
                                 <div class="grid grid-cols-1 gap-1">
                                     <template x-for="card in getCardsByCat(cat)" :key="card.id">
                                         <div class="flex justify-between items-center py-1.5 hover:bg-white/[0.02] px-2 group rounded border-b border-white/[0.02]">
                                             <div class="flex items-center gap-3">
                                                 <span class="status-icon font-mono text-[10px]" :class="getStatusColor(card)" x-text="getStatusIcon(card)"></span>
-                                                <span @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()" x-text="card.name" class="text-xs font-bold truncate group-hover:brand-blue transition-colors"></span>
+                                                <span @mouseenter="showPreview($event, card.image_uris?.normal)" @mouseleave="hidePreview()" :class="card.isCommander ? 'text-cyan-400 italic underline' : ''" x-text="card.name" class="text-xs font-bold truncate group-hover:brand-blue transition-colors"></span>
+                                                <span x-show="card.isCommander" class="text-[8px] border border-cyan-400/40 px-1 rounded text-cyan-400">CMDR</span>
                                             </div>
                                             <div class="flex items-center gap-4">
+                                                <button x-show="card.type_line.includes('Creature') || card.type_line.includes('Planeswalker')" @click="setCommander(card)" class="text-[8px] font-black tracking-tighter text-steel hover:text-cyan-400 transition" x-text="card.isCommander ? '' : 'SET CMDR'"></button>
                                                 <div class="hud-counter" :class="getUsageStats(card.name).avail < 0 ? 'deficit' : ''" x-text="getUsageStats(card.name).avail + ' AVAIL'"></div>
                                                 <div class="flex items-center bg-black/40 rounded border border-white/5">
                                                     <button @click="adjustQty(card, -1)" class="px-3 py-1 text-steel hover:brand-blue">-</button>
@@ -150,14 +155,23 @@
                                 <div class="visual-grid">
                                     <template x-for="card in getCardsByCat(cat)" :key="card.id">
                                         <div class="visual-card-wrapper group">
-                                            <img :src="card.image_uris?.normal" class="visual-card">
+                                            <img :src="card.image_uris?.normal" class="visual-card" :class="card.isCommander ? 'is-cmdr' : ''">
+                                            
+                                            <div x-show="card.isCommander" class="absolute -top-2 -right-1 z-20">
+                                                <div class="cmdr-tag">COMMANDER</div>
+                                            </div>
+
                                             <div class="absolute top-2 left-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <div class="hud-counter" :class="getUsageStats(card.name).avail < 0 ? 'deficit' : ''" x-text="getUsageStats(card.name).avail + ' AVAIL'"></div>
                                                 <div class="hud-counter bg-cyan-400 text-black font-black border-none" x-text="card.qty + 'x'"></div>
                                             </div>
-                                            <div class="absolute inset-0 flex items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 backdrop-blur-[1px] rounded-lg">
-                                                <button @click="adjustQty(card, -1)" class="bg-black/90 border border-cyan-400/40 w-10 h-10 rounded-full flex items-center justify-center text-xl hover:bg-cyan-400 hover:text-black transition">-</button>
-                                                <button @click="adjustQty(card, 1)" class="bg-black/90 border border-cyan-400/40 w-10 h-10 rounded-full flex items-center justify-center text-xl hover:bg-cyan-400 hover:text-black transition">+</button>
+
+                                            <div class="absolute inset-0 flex flex-col items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 backdrop-blur-[1px] rounded-lg">
+                                                <div class="flex gap-4">
+                                                    <button @click="adjustQty(card, -1)" class="bg-black/90 border border-cyan-400/40 w-10 h-10 rounded-full flex items-center justify-center text-xl hover:bg-cyan-400 hover:text-black transition">-</button>
+                                                    <button @click="adjustQty(card, 1)" class="bg-black/90 border border-cyan-400/40 w-10 h-10 rounded-full flex items-center justify-center text-xl hover:bg-cyan-400 hover:text-black transition">+</button>
+                                                </div>
+                                                <button x-show="!card.isCommander && (card.type_line.includes('Creature') || card.type_line.includes('Planeswalker'))" @click="setCommander(card)" class="bg-cyan-400 text-black px-4 py-1 text-[10px] font-black uppercase tracking-widest clip-path:polygon(0 0, 90% 0, 100% 30%, 100% 100%, 10% 100%, 0 70%)">SET CMDR</button>
                                             </div>
                                         </div>
                                     </template>
@@ -202,6 +216,12 @@
 
                 init() { if(this.decks.length) this.activeDeck = this.decks[0]; },
                 moveCursor(e) { if(!this.inSidebar) return; const c = document.getElementById('custom-cursor'); c.style.left = e.clientX+'px'; c.style.top = e.clientY+'px'; },
+
+                setCommander(targetCard) {
+                    this.activeDeck.cards.forEach(c => c.isCommander = false);
+                    targetCard.isCommander = true;
+                    this.save();
+                },
 
                 handleDragStart(index) { this.dragSrcIndex = index; },
                 handleDrop() {
@@ -274,7 +294,10 @@
                     this.searchQuery = ''; this.searchResults = []; this.save();
                 },
                 adjustQty(card, v) { card.qty += v; if(card.qty <= 0) this.activeDeck.cards = this.activeDeck.cards.filter(x => x.id !== card.id); this.save(); },
-                getCardsByCat(cat) { return this.activeDeck?.cards?.filter(c => c.type_line.includes(cat)) || []; },
+                getCardsByCat(cat) { 
+                    if (cat === 'Commander') return this.activeDeck?.cards?.filter(c => c.isCommander) || [];
+                    return this.activeDeck?.cards?.filter(c => c.type_line.includes(cat) && !c.isCommander) || []; 
+                },
                 countAllCards(d) { return d?.cards?.reduce((s, c) => s + c.qty, 0) || 0; },
                 save() { localStorage.setItem('decks', JSON.stringify(this.decks)); },
                 showPreview(e, url) { this.hoverPreview = { visible: true, url, x: e.clientX, y: e.clientY }; },
