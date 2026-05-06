@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FORGE // MOXFIELD NEW UPLINK</title>
+    <title>FORGE // MOXFIELD ENCORE UPLINK</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
@@ -22,7 +22,7 @@
         <header class="mb-12 border-b border-cyan-400/20 pb-6 flex justify-between items-end">
             <div>
                 <h1 class="text-5xl font-bold text-cyan-400 italic" style="font-family: 'Bebas Neue'">MOXFIELD // COLLECTION UPLINK</h1>
-                <p class="text-slate-400 text-sm tracking-widest uppercase">V4: Token Filtering & Complex Reskin Support</p>
+                <p class="text-slate-400 text-sm tracking-widest uppercase">V5: Precise Punctuation & CSV Integrity</p>
             </div>
             <a href="index.html" class="text-xs text-cyan-400 hover:underline mb-2 tracking-tighter">← SYSTEM TERMINAL</a>
         </header>
@@ -30,7 +30,7 @@
         <div class="grid gap-8">
             <div class="panel p-6">
                 <label class="block text-xs font-bold text-cyan-400 mb-2 uppercase tracking-tighter">Raw Data Input</label>
-                <textarea x-model="rawInput" rows="10" class="w-full p-4 rounded focus:outline-none focus:border-cyan-400" placeholder="Paste large list here..."></textarea>
+                <textarea x-model="rawInput" rows="10" class="w-full p-4 rounded focus:outline-none focus:border-cyan-400" placeholder="Paste list here..."></textarea>
             </div>
 
             <div class="flex justify-center">
@@ -40,10 +40,7 @@
             <div class="panel p-6" x-show="csvOutput">
                 <div class="flex justify-between items-center mb-2">
                     <label class="text-xs font-bold text-cyan-400 uppercase tracking-tighter">CSV Output</label>
-                    <div class="flex gap-2">
-                        <span class="text-[10px] text-yellow-500 font-bold uppercase py-1 px-2 bg-yellow-500/10" x-show="tokenCount > 0" x-text="tokenCount + ' TOKENS REMOVED'"></span>
-                        <button @click="downloadCSV()" class="text-[10px] text-white bg-white/10 px-2 py-1 hover:bg-cyan-400 hover:text-black transition">Download .CSV</button>
-                    </div>
+                    <button @click="downloadCSV()" class="text-[10px] text-white bg-white/10 px-2 py-1 hover:bg-cyan-400 hover:text-black transition">Download .CSV</button>
                 </div>
                 <textarea x-model="csvOutput" readonly rows="10" class="w-full p-4 rounded opacity-80 text-sm"></textarea>
             </div>
@@ -55,11 +52,9 @@
             return {
                 rawInput: '',
                 csvOutput: '',
-                tokenCount: 0,
                 
                 processData() {
                     if (!this.rawInput.trim()) return;
-                    this.tokenCount = 0;
 
                     const lines = this.rawInput.split('\n');
                     let csvRows = ['Count,Name,Edition,Condition,Language,Foil,Collector Number'];
@@ -68,67 +63,53 @@
                         const trimmedLine = line.trim();
                         if (!trimmedLine) return;
 
-                        // Identify Count
+                        // 1. Identify Count
                         const countMatch = trimmedLine.match(/^(\d+)\s+/);
                         if (!countMatch) return;
-                        
                         const count = countMatch[1];
                         let remainder = trimmedLine.substring(countMatch[0].length).trim();
 
-                        // Grab Set [XXX]
+                        // 2. Identify Set [XXX]
                         const setMatch = remainder.match(/\[(.*?)\]/);
                         if (!setMatch) return;
-
                         let set = setMatch[1].trim();
+                        
                         const setIndex = remainder.indexOf(setMatch[0]);
                         let namePart = remainder.substring(0, setIndex).trim();
                         let extraPart = remainder.substring(setIndex + setMatch[0].length).trim();
 
-                        // --- THE V4 SCRUBBING ENGINE ---
+                        // 3. Filter Tokens
+                        if (namePart.toLowerCase().includes('token') || namePart.toLowerCase().includes('thick stock')) return;
 
-                        // 1. Filter out non-importable items (Tokens & Thick Stock)
-                        const filterTerms = ['token', 'thick stock', 'art card'];
-                        if (filterTerms.some(term => namePart.toLowerCase().includes(term))) {
-                            this.tokenCount++;
-                            return; // Skip this line
-                        }
-
-                        // 2. Resolve [LIST] redirects
+                        // 4. Resolve [LIST]
                         const listCheck = namePart.match(/\((.*?)\)/);
-                        if (set === 'LIST' && listCheck) {
-                            set = listCheck[1];
-                        }
+                        if (set === 'LIST' && listCheck) set = listCheck[1];
 
-                        // 3. Robust Reskin/Double-Name Handling
-                        // Captures second name in "A Promise Fulfilled - Light Up the Stage"
+                        // 5. Resolve Reskins (The "-" separator)
                         if (namePart.includes(" - ")) {
                             const parts = namePart.split(" - ");
-                            // If the second part looks like a real card name (not a version like "Full Art")
                             const noiseTerms = ['full art', 'showcase', 'borderless', 'textured', 'extended', 'etched'];
                             const lastPart = parts[parts.length - 1];
-                            
                             if (!noiseTerms.some(term => lastPart.toLowerCase().includes(term))) {
                                 namePart = lastPart;
                             }
                         }
 
-                        // 4. Scrub Name: Remove commas and noise
+                        // 6. Scrub Name: REMOVE the comma stripping but KEEP parentheses stripping
                         let cleanName = namePart
                             .replace(/\s*\(.*?\)/g, '')   
                             .replace(/\s*-\s*(Full Art|Showcase|Borderless|Textured|Extended|Etched|Retro)/gi, '')
-                            .replace(/,/g, '') // Remove commas in name to avoid CSV drift
                             .trim();
 
-                        // 5. Collector Number & Foil Detection
+                        // 7. Collector Number & Foil
                         let collectorNum = '';
                         let isFoil = /foil/i.test(extraPart + namePart) ? 'foil' : '';
-
                         const allDigits = (namePart + " " + extraPart).match(/\b\d{1,4}\b/g);
-                        if (allDigits) {
-                            collectorNum = allDigits[allDigits.length - 1];
-                        }
+                        if (allDigits) collectorNum = allDigits[allDigits.length - 1];
 
+                        // CRITICAL: Double quote the name but keep the punctuation inside
                         const finalName = `"${cleanName.replace(/"/g, '""')}"`;
+                        
                         csvRows.push(`${count},${finalName},${set},Near Mint,English,${isFoil},${collectorNum}`);
                     });
 
