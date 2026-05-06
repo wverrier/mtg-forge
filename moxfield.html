@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FORGE // MOXFIELD LASTDANCE</title>
+    <title>FORGE // MOXFIELD ONEMORETIME</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
@@ -14,35 +14,47 @@
         textarea { background: rgba(0,0,0,0.3) !important; border: 1px solid rgba(77,217,240,0.2) !important; color: #4dd9f0 !important; font-family: monospace; }
         .btn-primary { background: transparent; border: 1px solid var(--cyan); color: var(--cyan); font-family: 'Bebas Neue'; transition: 0.2s; cursor: pointer; }
         .btn-primary:hover { background: var(--cyan); color: var(--gunmetal); box-shadow: 0 0 15px var(--cyan); }
+        .nav-tab { cursor: pointer; padding: 4px 12px; border-bottom: 2px solid transparent; font-size: 12px; letter-spacing: 1px; transition: 0.3s; color: #64748b; }
+        .nav-tab.active { color: var(--cyan); border-bottom: 2px solid var(--cyan); }
     </style>
 </head>
 <body x-data="moxfieldTranslator()">
 
     <div class="max-w-4xl mx-auto py-12 px-6">
-        <header class="mb-12 border-b border-cyan-400/20 pb-6 flex justify-between items-end">
+        <header class="mb-8 border-b border-cyan-400/20 pb-6 flex justify-between items-end">
             <div>
-                <h1 class="text-5xl font-bold text-cyan-400 italic" style="font-family: 'Bebas Neue'">MOXFIELD // COLLECTION UPLINK</h1>
-                <p class="text-slate-400 text-sm tracking-widest uppercase">V10: Full Punctuation & Reskin Logic</p>
+                <h1 class="text-5xl font-bold text-cyan-400 italic" style="font-family: 'Bebas Neue'">MOXFIELD // TRANSLATOR</h1>
+                <p class="text-slate-400 text-sm tracking-widest uppercase">V11: Multi-Mode Deck & Collection Uplink</p>
             </div>
-            <a href="index.html" class="text-xs text-cyan-400 hover:underline mb-2 tracking-tighter">← SYSTEM TERMINAL</a>
+            
+            <nav class="flex gap-4">
+                <div @click="mode = 'csv'" :class="mode === 'csv' ? 'nav-tab active' : 'nav-tab'">OPTION 1: CSV</div>
+                <div @click="mode = 'txt'" :class="mode === 'txt' ? 'nav-tab active' : 'nav-tab'">OPTION 2: DECK (TXT)</div>
+            </nav>
         </header>
 
-        <div class="grid gap-8">
+        <div class="grid gap-6">
             <div class="panel p-6">
-                <label class="block text-xs font-bold text-cyan-400 mb-2 uppercase tracking-tighter">Raw Data Input</label>
-                <textarea x-model="rawInput" rows="10" class="w-full p-4 rounded focus:outline-none focus:border-cyan-400" placeholder="Paste your list here..."></textarea>
+                <label class="block text-[10px] font-bold text-cyan-400 mb-2 uppercase tracking-widest">Input Raw Data</label>
+                <textarea x-model="rawInput" rows="8" class="w-full p-4 rounded focus:outline-none focus:border-cyan-400" placeholder="Paste data here..."></textarea>
             </div>
 
             <div class="flex justify-center">
-                <button @click="processData()" class="btn-primary px-12 py-3 text-xl uppercase italic">Generate CSV</button>
+                <button @click="processData()" class="btn-primary px-16 py-3 text-xl uppercase italic" 
+                        x-text="mode === 'csv' ? 'Generate CSV File' : 'Format for Decklist'"></button>
             </div>
 
-            <div class="panel p-6" x-show="csvOutput">
+            <div class="panel p-6" x-show="output">
                 <div class="flex justify-between items-center mb-2">
-                    <label class="text-xs font-bold text-cyan-400 uppercase tracking-tighter">CSV Output (Moxfield Format)</label>
-                    <button @click="downloadCSV()" class="text-[10px] text-white bg-white/10 px-2 py-1 hover:bg-cyan-400 hover:text-black transition">Download .CSV</button>
+                    <label class="text-[10px] font-bold text-cyan-400 uppercase tracking-widest" 
+                           x-text="mode === 'csv' ? 'CSV Result (Use for Collection Import)' : 'TXT Result (Copy/Paste into Deck Editor)'"></label>
+                    
+                    <div class="flex gap-2">
+                        <button @click="copyToClipboard()" class="text-[10px] text-white bg-white/10 px-2 py-1 hover:bg-cyan-400 hover:text-black transition uppercase">Copy</button>
+                        <button x-show="mode === 'csv'" @click="downloadCSV()" class="text-[10px] text-white bg-white/10 px-2 py-1 hover:bg-cyan-400 hover:text-black transition uppercase">Download .CSV</button>
+                    </div>
                 </div>
-                <textarea x-model="csvOutput" readonly rows="10" class="w-full p-4 rounded opacity-80 text-sm"></textarea>
+                <textarea x-model="output" readonly rows="10" class="w-full p-4 rounded opacity-80 text-sm" id="outputArea"></textarea>
             </div>
         </div>
     </div>
@@ -50,26 +62,28 @@
     <script>
         function moxfieldTranslator() {
             return {
+                mode: 'csv', // 'csv' or 'txt'
                 rawInput: '',
-                csvOutput: '',
+                output: '',
                 
                 processData() {
                     if (!this.rawInput.trim()) return;
-
                     const lines = this.rawInput.split('\n');
-                    let csvRows = ['Count,Name,Edition,Condition,Language,Foil,Collector Number'];
+                    let results = [];
+
+                    if (this.mode === 'csv') {
+                        results.push('Count,Name,Edition,Condition,Language,Foil,Collector Number');
+                    }
                     
                     lines.forEach(line => {
-                        const trimmedLine = line.trim();
-                        if (!trimmedLine) return;
+                        const trimmed = line.trim();
+                        if (!trimmed) return;
 
-                        // 1. Extract Count
-                        const countMatch = trimmedLine.match(/^(\d+)\s+/);
+                        const countMatch = trimmed.match(/^(\d+)\s+/);
                         if (!countMatch) return;
                         const count = countMatch[1];
-                        let remainder = trimmedLine.substring(countMatch[0].length).trim();
+                        let remainder = trimmed.substring(countMatch[0].length).trim();
 
-                        // 2. Extract Set [XXX]
                         const setMatch = remainder.match(/\[(.*?)\]/);
                         if (!setMatch) return;
                         let set = setMatch[1].trim();
@@ -78,55 +92,59 @@
                         let namePart = remainder.substring(0, setIndex).trim();
                         let extraPart = remainder.substring(setIndex + setMatch[0].length).trim();
 
-                        // Skip Tokens/Thick Stock
+                        // Filter non-cards
                         if (namePart.toLowerCase().includes('token') || namePart.toLowerCase().includes('thick stock')) return;
 
-                        // 3. Handle [LIST] / [SPG] Redirection
+                        // List/SPG Logic
                         const listSetMatch = namePart.match(/\((.*?)\)/);
                         if ((set === 'LIST' || set === 'SPG') && listSetMatch) {
-                            set = listSetMatch[1]; // Use MKC instead of LIST
+                            set = listSetMatch[1];
                         }
 
-                        // 4. Resolve Reskins (FCA/SLD)
-                        if (namePart.includes(" - ")) {
-                            const parts = namePart.split(" - ");
-                            const lastPart = parts[parts.length - 1].trim();
-                            // If the set is known for reskins, we almost always want the second name
-                            if (['FCA', 'SLD'].includes(set)) {
-                                namePart = lastPart;
-                            }
+                        // Reskin Logic (FCA/SLD)
+                        if (namePart.includes(" - ") && ['FCA', 'SLD'].includes(set)) {
+                            namePart = namePart.split(" - ").pop().trim();
                         }
 
-                        // 5. Clean Name: Remove bracketed info but KEEP the core name (and its commas)
-                        // This preserves "Spider-Man, Brooklyn Visionary"
+                        // Clean Name
                         let cleanName = namePart
-                            .replace(/\s*\(.*?\)/g, '')   // Remove (anything in parentheses)
-                            .replace(/\s*-\s*(Full Art|Showcase|Borderless|Textured|Extended|Etched|Retro)/gi, '') // Remove flavor suffixes
+                            .replace(/\s*\(.*?\)/g, '')
+                            .replace(/\s*-\s*(Full Art|Showcase|Borderless|Textured|Extended|Etched|Retro)/gi, '')
                             .trim();
 
-                        // 6. Collector Number & Foil
-                        let collectorNum = '';
-                        let isFoil = /foil/i.test(extraPart + namePart) ? 'foil' : '';
-                        
+                        // Collector Number
+                        let colNum = '';
                         const allDigits = (namePart + " " + extraPart).match(/\b\d{1,4}\b/g);
-                        if (allDigits) {
-                            // We usually want the LAST sequence of digits as the collector number
-                            collectorNum = allDigits[allDigits.length - 1];
-                        }
+                        if (allDigits) colNum = allDigits[allDigits.length - 1];
 
-                        // CSV Safety: Wrap name in quotes to protect internal commas
-                        const finalName = `"${cleanName.replace(/"/g, '""')}"`;
-                        csvRows.push(`${count},${finalName},${set},Near Mint,English,${isFoil},${collectorNum}`);
+                        // Foil
+                        let foilFlag = /foil/i.test(extraPart + namePart) ? 'foil' : '';
+
+                        if (this.mode === 'csv') {
+                            const quotedName = `"${cleanName.replace(/"/g, '""')}"`;
+                            results.push(`${count},${quotedName},${set},Near Mint,English,${foilFlag},${colNum}`);
+                        } else {
+                            // TXT DECK FORMAT: "1 Card Name [SET] 123"
+                            // Moxfield deck editor prefers this exact string
+                            results.push(`${count} ${cleanName} [${set}] ${colNum}`);
+                        }
                     });
 
-                    this.csvOutput = csvRows.join('\n');
+                    this.output = results.join('\n');
+                },
+
+                copyToClipboard() {
+                    const el = document.getElementById('outputArea');
+                    el.select();
+                    document.execCommand('copy');
+                    alert('Copied to clipboard!');
                 },
 
                 downloadCSV() {
-                    const blob = new Blob([this.csvOutput], { type: 'text/csv;charset=utf-8;' });
+                    const blob = new Blob([this.output], { type: 'text/csv;charset=utf-8;' });
                     const link = document.createElement("a");
                     link.href = URL.createObjectURL(blob);
-                    link.setAttribute("download", "forge_moxfield_collection.csv");
+                    link.setAttribute("download", "forge_export.csv");
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
