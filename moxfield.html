@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FORGE // MOXFIELD UPLINK</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
@@ -18,15 +19,19 @@
 <body x-data="moxfieldTranslator()">
 
     <div class="max-w-4xl mx-auto py-12 px-6">
-        <header class="mb-12 border-b border-cyan-400/20 pb-6">
-            <h1 class="text-5xl font-bold text-cyan-400 italic" style="font-family: 'Bebas Neue'">MOXFIELD // COLLECTION UPLINK</h1>
-            <p class="text-slate-400 text-sm tracking-widest uppercase">Format: [Count] [Name] [[Set]] [Collector Number]</p>
+        <header class="mb-12 border-b border-cyan-400/20 pb-6 flex justify-between items-end">
+            <div>
+                <h1 class="text-5xl font-bold text-cyan-400 italic" style="font-family: 'Bebas Neue'">MOXFIELD // COLLECTION UPLINK</h1>
+                <p class="text-slate-400 text-sm tracking-widest uppercase">Format: [Count] [Name] [[Set]] [Collector Number/Extras]</p>
+            </div>
+            <a href="index.html" class="text-xs text-cyan-400 hover:underline mb-2">← Back to Terminal</a>
         </header>
 
         <div class="grid gap-8">
             <div class="panel p-6">
                 <label class="block text-xs font-bold text-cyan-400 mb-2 uppercase tracking-tighter">Raw Data Input</label>
-                <textarea x-model="rawInput" rows="8" class="w-full p-4 rounded focus:outline-none focus:border-cyan-400" placeholder="1 Superior Foes of Spider-Man [SPM] 96"></textarea>
+                <textarea x-model="rawInput" rows="8" class="w-full p-4 rounded focus:outline-none focus:border-cyan-400" 
+                    placeholder="1 Mountain (0192) [SPM] 96&#10;1 Appa, Steadfast Guardian (Borderless) [TLA]&#10;1 Mountain (0575) (Surge Foil) [FIN] 575"></textarea>
             </div>
 
             <div class="flex justify-center">
@@ -53,56 +58,86 @@
                 rawInput: '',
                 csvOutput: '',
                 
-               processData() {
-    const lines = this.rawInput.split('\n');
-    // Header remains the same
-    let csvRows = ['Count,Name,Edition,Condition,Language,Foil,Collector Number'];
-    
-    lines.forEach(line => {
-        if (!line.trim()) return;
+                processData() {
+                    if (!this.rawInput.trim()) {
+                        alert("Please input raw card data first.");
+                        return;
+                    }
 
-        // NEW REGEX: Handles the specific bracket format you provided
-        const regex = /^(\d+)\s+(.*?)\s+\[(.*?)\]\s*(.*)$/;
-        const match = line.match(regex);
+                    const lines = this.rawInput.split('\n');
+                    let csvRows = ['Count,Name,Edition,Condition,Language,Foil,Collector Number'];
+                    
+                    lines.forEach(line => {
+                        const trimmedLine = line.trim();
+                        if (!trimmedLine) return;
 
-        if (match) {
-            let [full, count, name, set, extra] = match;
-            
-            // 1. Scrub the Name: Remove anything in parentheses like (0192) or (Borderless)
-            // Moxfield wants "Mountain", not "Mountain (0192)"
-            let cleanName = name.replace(/\s*\([^)]*\)/g, '').trim();
-            
-            // 2. Identify Foil: Check if "Surge Foil" or "Foil" is in the extra text
-            const isFoil = /foil/i.test(extra) ? 'foil' : '';
-            
-            // 3. Scrub Collector Number: Extract just the digits if present
-            let collectorNum = extra.replace(/\s*\([^)]*\)/g, '').trim();
-            
-            // If the name had a number like (0192) but 'extra' was empty, 
-            // we try to grab the number from the original name.
-            if (!collectorNum) {
-                const numMatch = name.match(/\((\d+)\)/);
-                if (numMatch) collectorNum = numMatch[1];
-            }
+                        // Step 1: Extract Count (the leading digit)
+                        const countMatch = trimmedLine.match(/^(\d+)\s+/);
+                        if (!countMatch) return; // Skip lines that don't start with a number
+                        
+                        const count = countMatch[1];
+                        let remainder = trimmedLine.substring(countMatch[0].length).trim();
 
-            // Clean commas for CSV safety
-            const finalName = `"${cleanName}"`;
-            const finalSet = set.trim();
-            
-            csvRows.push(`${count},${finalName},${finalSet},Near Mint,English,${isFoil},${collectorNum}`);
-        }
-    });
+                        // Step 2: Extract Set Code inside brackets, e.g., [SPM]
+                        const setMatch = remainder.match(/\[(.*?)\]/);
+                        if (!setMatch) return; // Skip if no set code
 
-    this.csvOutput = csvRows.join('\n');
-}
+                        const set = setMatch[1].trim();
+                        
+                        // Split line into left-of-set (name + details) and right-of-set (collector number + finishes)
+                        const setIndex = remainder.indexOf(setMatch[0]);
+                        let rawNamePart = remainder.substring(0, setIndex).trim();
+                        let rawExtraPart = remainder.substring(setIndex + setMatch[0].length).trim();
+
+                        // Step 3: Scrub Name (Remove any parenthesis elements like (0192) or (Borderless))
+                        // We also detect if any of these stripped parentheticals are collector numbers
+                        let collectorNum = '';
+                        let isFoil = '';
+
+                        // Look for numeric codes in parentheticals inside the name part, e.g., "Mountain (0192)"
+                        const parentheticalNumMatch = rawNamePart.match(/\((\d+)\)/);
+                        if (parentheticalNumMatch) {
+                            collectorNum = parentheticalNumMatch[1];
+                        }
+
+                        // Strip all parenthesis blocks from the name
+                        let cleanName = rawNamePart.replace(/\s*\([^)]*\)/g, '').trim();
+
+                        // Step 4: Parse the Extra Part (after the set code)
+                        if (rawExtraPart) {
+                            // Check for foil signifiers
+                            if (/foil/i.test(rawExtraPart)) {
+                                isFoil = 'foil';
+                            }
+                            
+                            // Extract numbers if we haven't found a collector number yet
+                            const numberMatch = rawExtraPart.match(/\b\d+\b/);
+                            if (numberMatch && !collectorNum) {
+                                collectorNum = numberMatch[0];
+                            }
+                        }
+
+                        // Escape quotes for CSV safety
+                        const finalName = `"${cleanName.replace(/"/g, '""')}"`;
+                        
+                        // Default properties Moxfield accepts
+                        const condition = 'Near Mint';
+                        const language = 'English';
+
+                        csvRows.push(`${count},${finalName},${set},${condition},${language},${isFoil},${collectorNum}`);
+                    });
+
+                    this.csvOutput = csvRows.join('\n');
+                },
 
                 downloadCSV() {
-                    const blob = new Blob([this.csvOutput], { type: 'text/csv' });
+                    if (!this.csvOutput) return;
+                    const blob = new Blob([this.csvOutput], { type: 'text/csv;charset=utf-8;' });
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.setAttribute('hidden', '');
                     a.setAttribute('href', url);
-                    a.setAttribute('download', 'moxfield_import.csv');
+                    a.setAttribute('download', 'moxfield_collection_import.csv');
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
