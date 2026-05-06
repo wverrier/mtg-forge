@@ -53,35 +53,48 @@
                 rawInput: '',
                 csvOutput: '',
                 
-                processData() {
-                    const lines = this.rawInput.split('\n');
-                    let csvRows = ['Count,Name,Edition,Condition,Language,Foil,Collector Number'];
-                    
-                    lines.forEach(line => {
-                        if (!line.trim()) return;
+               processData() {
+    const lines = this.rawInput.split('\n');
+    // Header remains the same
+    let csvRows = ['Count,Name,Edition,Condition,Language,Foil,Collector Number'];
+    
+    lines.forEach(line => {
+        if (!line.trim()) return;
 
-                        // Regex logic:
-                        // ^(\d+) -> Matches count
-                        // (.*?)  -> Matches name (lazy)
-                        // \[ (.*?) \] -> Matches set inside brackets
-                        // \s* (\d*) -> Matches collector number at end
-                        const regex = /^(\d+)\s+(.*?)\s+\[(.*?)\]\s*(.*)$/;
-                        const match = line.match(regex);
+        // NEW REGEX: Handles the specific bracket format you provided
+        const regex = /^(\d+)\s+(.*?)\s+\[(.*?)\]\s*(.*)$/;
+        const match = line.match(regex);
 
-                        if (match) {
-                            const [full, count, name, set, collectorNum] = match;
-                            // Clean commas from names to prevent CSV breakage
-                            const cleanName = `"${name.trim()}"`;
-                            const cleanSet = set.trim();
-                            const cleanNum = collectorNum.trim();
-                            
-                            // Defaulting to Near Mint, English, and non-foil
-                            csvRows.push(`${count},${cleanName},${cleanSet},Near Mint,English,,${cleanNum}`);
-                        }
-                    });
+        if (match) {
+            let [full, count, name, set, extra] = match;
+            
+            // 1. Scrub the Name: Remove anything in parentheses like (0192) or (Borderless)
+            // Moxfield wants "Mountain", not "Mountain (0192)"
+            let cleanName = name.replace(/\s*\([^)]*\)/g, '').trim();
+            
+            // 2. Identify Foil: Check if "Surge Foil" or "Foil" is in the extra text
+            const isFoil = /foil/i.test(extra) ? 'foil' : '';
+            
+            // 3. Scrub Collector Number: Extract just the digits if present
+            let collectorNum = extra.replace(/\s*\([^)]*\)/g, '').trim();
+            
+            // If the name had a number like (0192) but 'extra' was empty, 
+            // we try to grab the number from the original name.
+            if (!collectorNum) {
+                const numMatch = name.match(/\((\d+)\)/);
+                if (numMatch) collectorNum = numMatch[1];
+            }
 
-                    this.csvOutput = csvRows.join('\n');
-                },
+            // Clean commas for CSV safety
+            const finalName = `"${cleanName}"`;
+            const finalSet = set.trim();
+            
+            csvRows.push(`${count},${finalName},${finalSet},Near Mint,English,${isFoil},${collectorNum}`);
+        }
+    });
+
+    this.csvOutput = csvRows.join('\n');
+}
 
                 downloadCSV() {
                     const blob = new Blob([this.csvOutput], { type: 'text/csv' });
