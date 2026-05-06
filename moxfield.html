@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FORGE // MOXFIELD UPLINK</title>
+    <title>FORGE // MOXFIELD UPLINK NEW</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
@@ -22,34 +22,30 @@
         <header class="mb-12 border-b border-cyan-400/20 pb-6 flex justify-between items-end">
             <div>
                 <h1 class="text-5xl font-bold text-cyan-400 italic" style="font-family: 'Bebas Neue'">MOXFIELD // COLLECTION UPLINK</h1>
-                <p class="text-slate-400 text-sm tracking-widest uppercase">Format: [Count] [Name] [[Set]] [Collector Number/Extras]</p>
+                <p class="text-slate-400 text-sm tracking-widest uppercase">Specialized Parser: [LIST] & Full-Art Support</p>
             </div>
-            <a href="index.html" class="text-xs text-cyan-400 hover:underline mb-2">← Back to Terminal</a>
+            <a href="index.html" class="text-xs text-cyan-400 hover:underline mb-2 tracking-tighter">← SYSTEM TERMINAL</a>
         </header>
 
         <div class="grid gap-8">
             <div class="panel p-6">
                 <label class="block text-xs font-bold text-cyan-400 mb-2 uppercase tracking-tighter">Raw Data Input</label>
-                <textarea x-model="rawInput" rows="8" class="w-full p-4 rounded focus:outline-none focus:border-cyan-400" 
-                    placeholder="1 Mountain (0192) [SPM] 96&#10;1 Appa, Steadfast Guardian (Borderless) [TLA]&#10;1 Mountain (0575) (Surge Foil) [FIN] 575"></textarea>
+                <textarea x-model="rawInput" rows="10" class="w-full p-4 rounded focus:outline-none focus:border-cyan-400" 
+                    placeholder="Paste your list here..."></textarea>
             </div>
 
             <div class="flex justify-center">
-                <button @click="processData()" class="btn-primary px-12 py-3 text-xl uppercase italic">Process for CSV</button>
+                <button @click="processData()" class="btn-primary px-12 py-3 text-xl uppercase italic">Clean & Format for CSV</button>
             </div>
 
             <div class="panel p-6" x-show="csvOutput">
                 <div class="flex justify-between items-center mb-2">
-                    <label class="text-xs font-bold text-cyan-400 uppercase tracking-tighter">CSV Output (Moxfield Format)</label>
-                    <button @click="downloadCSV()" class="text-[10px] text-white bg-white/10 px-2 py-1 hover:bg-cyan-400 hover:text-black">Download .CSV</button>
+                    <label class="text-xs font-bold text-cyan-400 uppercase tracking-tighter">CSV Output</label>
+                    <button @click="downloadCSV()" class="text-[10px] text-white bg-white/10 px-2 py-1 hover:bg-cyan-400 hover:text-black transition">Download .CSV</button>
                 </div>
-                <textarea x-model="csvOutput" readonly rows="8" class="w-full p-4 rounded opacity-80 text-sm"></textarea>
+                <textarea x-model="csvOutput" readonly rows="10" class="w-full p-4 rounded opacity-80 text-sm"></textarea>
             </div>
         </div>
-
-        <footer class="mt-12 opacity-20 font-mono text-[10px] text-center tracking-[0.5em] uppercase">
-            Data Scrubbing Active // CSV-RFC4180 Compliant
-        </footer>
     </div>
 
     <script>
@@ -59,10 +55,7 @@
                 csvOutput: '',
                 
                 processData() {
-                    if (!this.rawInput.trim()) {
-                        alert("Please input raw card data first.");
-                        return;
-                    }
+                    if (!this.rawInput.trim()) return;
 
                     const lines = this.rawInput.split('\n');
                     let csvRows = ['Count,Name,Edition,Condition,Language,Foil,Collector Number'];
@@ -71,76 +64,77 @@
                         const trimmedLine = line.trim();
                         if (!trimmedLine) return;
 
-                        // Step 1: Extract Count (the leading digit)
+                        // Regex to grab Count and separate the rest
                         const countMatch = trimmedLine.match(/^(\d+)\s+/);
-                        if (!countMatch) return; // Skip lines that don't start with a number
+                        if (!countMatch) return;
                         
                         const count = countMatch[1];
                         let remainder = trimmedLine.substring(countMatch[0].length).trim();
 
-                        // Step 2: Extract Set Code inside brackets, e.g., [SPM]
+                        // Grab the Set Code [XXX]
                         const setMatch = remainder.match(/\[(.*?)\]/);
-                        if (!setMatch) return; // Skip if no set code
+                        if (!setMatch) return;
 
-                        const set = setMatch[1].trim();
-                        
-                        // Split line into left-of-set (name + details) and right-of-set (collector number + finishes)
+                        let set = setMatch[1].trim();
                         const setIndex = remainder.indexOf(setMatch[0]);
-                        let rawNamePart = remainder.substring(0, setIndex).trim();
-                        let rawExtraPart = remainder.substring(setIndex + setMatch[0].length).trim();
+                        let namePart = remainder.substring(0, setIndex).trim();
+                        let extraPart = remainder.substring(setIndex + setMatch[0].length).trim();
 
-                        // Step 3: Scrub Name (Remove any parenthesis elements like (0192) or (Borderless))
-                        // We also detect if any of these stripped parentheticals are collector numbers
-                        let collectorNum = '';
-                        let isFoil = '';
+                        // --- SCRUBBING ENGINE ---
 
-                        // Look for numeric codes in parentheticals inside the name part, e.g., "Mountain (0192)"
-                        const parentheticalNumMatch = rawNamePart.match(/\((\d+)\)/);
-                        if (parentheticalNumMatch) {
-                            collectorNum = parentheticalNumMatch[1];
+                        // 1. Resolve [LIST] redirects (e.g. Arcane Signet (MKC) [LIST])
+                        const listCheck = namePart.match(/\((.*?)\)/);
+                        if (set === 'LIST' && listCheck) {
+                            set = listCheck[1]; // Use the inner set code (MKC) instead of LIST
                         }
 
-                        // Strip all parenthesis blocks from the name
-                        let cleanName = rawNamePart.replace(/\s*\([^)]*\)/g, '').trim();
-
-                        // Step 4: Parse the Extra Part (after the set code)
-                        if (rawExtraPart) {
-                            // Check for foil signifiers
-                            if (/foil/i.test(rawExtraPart)) {
-                                isFoil = 'foil';
-                            }
+                        // 2. Resolve Double-Names/Reskins (e.g. Basim - Ramses)
+                        if (namePart.includes(" - ")) {
+                            // If it's a reskin, the second half is usually the actual card name
+                            const parts = namePart.split(" - ");
+                            const possibleSuffixes = ['full art', 'showcase', 'borderless'];
+                            const lastPartLower = parts[parts.length - 1].toLowerCase();
                             
-                            // Extract numbers if we haven't found a collector number yet
-                            const numberMatch = rawExtraPart.match(/\b\d+\b/);
-                            if (numberMatch && !collectorNum) {
-                                collectorNum = numberMatch[0];
+                            // Only split if it's not a flavor suffix like "Full Art"
+                            if (!possibleSuffixes.some(s => lastPartLower.includes(s))) {
+                                namePart = parts[parts.length - 1];
                             }
                         }
 
-                        // Escape quotes for CSV safety
-                        const finalName = `"${cleanName.replace(/"/g, '""')}"`;
-                        
-                        // Default properties Moxfield accepts
-                        const condition = 'Near Mint';
-                        const language = 'English';
+                        // 3. Clean Name: Remove (Parenthesis) and common suffixes
+                        let cleanName = namePart
+                            .replace(/\s*\(.*?\)/g, '')   
+                            .replace(/\s*-\s*Full Art/i, '')
+                            .replace(/\s*-\s*Showcase/i, '')
+                            .replace(/\s*-\s*Borderless/i, '')
+                            .trim();
 
-                        csvRows.push(`${count},${finalName},${set},${condition},${language},${isFoil},${collectorNum}`);
+                        // 4. Collector Number & Foil Detection
+                        let collectorNum = '';
+                        let isFoil = /foil/i.test(extraPart + namePart) ? 'foil' : '';
+
+                        // Look for digits in the name or extra part (3 or 4 digits usually)
+                        const allDigits = (namePart + " " + extraPart).match(/\b\d{1,4}\b/g);
+                        if (allDigits) {
+                            // Take the last set of digits found as the collector number
+                            collectorNum = allDigits[allDigits.length - 1];
+                        }
+
+                        const finalName = `"${cleanName.replace(/"/g, '""')}"`;
+                        csvRows.push(`${count},${finalName},${set},Near Mint,English,${isFoil},${collectorNum}`);
                     });
 
                     this.csvOutput = csvRows.join('\n');
                 },
 
                 downloadCSV() {
-                    if (!this.csvOutput) return;
                     const blob = new Blob([this.csvOutput], { type: 'text/csv;charset=utf-8;' });
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.setAttribute('hidden', '');
-                    a.setAttribute('href', url);
-                    a.setAttribute('download', 'moxfield_collection_import.csv');
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    link.setAttribute("download", "forge_moxfield_export.csv");
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
                 }
             }
         }
