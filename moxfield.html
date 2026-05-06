@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FORGE // MOXFIELD ONEMORETIME</title>
+    <title>FORGE // MOXFIELD STARWARSISBETTER</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
@@ -24,7 +24,7 @@
         <header class="mb-8 border-b border-cyan-400/20 pb-6 flex justify-between items-end">
             <div>
                 <h1 class="text-5xl font-bold text-cyan-400 italic" style="font-family: 'Bebas Neue'">MOXFIELD // TRANSLATOR</h1>
-                <p class="text-slate-400 text-sm tracking-widest uppercase">V11: Multi-Mode Deck & Collection Uplink</p>
+                <p class="text-slate-400 text-sm tracking-widest uppercase">V12: Numeric Formatting for Deck Editor</p>
             </div>
             
             <nav class="flex gap-4">
@@ -47,11 +47,9 @@
             <div class="panel p-6" x-show="output">
                 <div class="flex justify-between items-center mb-2">
                     <label class="text-[10px] font-bold text-cyan-400 uppercase tracking-widest" 
-                           x-text="mode === 'csv' ? 'CSV Result (Use for Collection Import)' : 'TXT Result (Copy/Paste into Deck Editor)'"></label>
-                    
+                           x-text="mode === 'csv' ? 'CSV Result' : 'TXT Result (Copy/Paste into Deck)'"></label>
                     <div class="flex gap-2">
                         <button @click="copyToClipboard()" class="text-[10px] text-white bg-white/10 px-2 py-1 hover:bg-cyan-400 hover:text-black transition uppercase">Copy</button>
-                        <button x-show="mode === 'csv'" @click="downloadCSV()" class="text-[10px] text-white bg-white/10 px-2 py-1 hover:bg-cyan-400 hover:text-black transition uppercase">Download .CSV</button>
                     </div>
                 </div>
                 <textarea x-model="output" readonly rows="10" class="w-full p-4 rounded opacity-80 text-sm" id="outputArea"></textarea>
@@ -62,7 +60,7 @@
     <script>
         function moxfieldTranslator() {
             return {
-                mode: 'csv', // 'csv' or 'txt'
+                mode: 'csv',
                 rawInput: '',
                 output: '',
                 
@@ -92,40 +90,40 @@
                         let namePart = remainder.substring(0, setIndex).trim();
                         let extraPart = remainder.substring(setIndex + setMatch[0].length).trim();
 
-                        // Filter non-cards
                         if (namePart.toLowerCase().includes('token') || namePart.toLowerCase().includes('thick stock')) return;
 
-                        // List/SPG Logic
+                        // List/SPG Redirection
                         const listSetMatch = namePart.match(/\((.*?)\)/);
                         if ((set === 'LIST' || set === 'SPG') && listSetMatch) {
                             set = listSetMatch[1];
                         }
 
-                        // Reskin Logic (FCA/SLD)
+                        // Reskin Logic
                         if (namePart.includes(" - ") && ['FCA', 'SLD'].includes(set)) {
                             namePart = namePart.split(" - ").pop().trim();
                         }
 
-                        // Clean Name
+                        // Clean Name (Keeping Commas for Deck format)
                         let cleanName = namePart
                             .replace(/\s*\(.*?\)/g, '')
                             .replace(/\s*-\s*(Full Art|Showcase|Borderless|Textured|Extended|Etched|Retro)/gi, '')
                             .trim();
 
-                        // Collector Number
+                        // Collector Number Cleaning
                         let colNum = '';
                         const allDigits = (namePart + " " + extraPart).match(/\b\d{1,4}\b/g);
-                        if (allDigits) colNum = allDigits[allDigits.length - 1];
-
-                        // Foil
-                        let foilFlag = /foil/i.test(extraPart + namePart) ? 'foil' : '';
+                        if (allDigits) {
+                            colNum = allDigits[allDigits.length - 1];
+                            // LEADING ZERO FIX: Strip zeros from the start (e.g. 0223 becomes 223)
+                            colNum = colNum.replace(/^0+/, '');
+                        }
 
                         if (this.mode === 'csv') {
                             const quotedName = `"${cleanName.replace(/"/g, '""')}"`;
+                            let foilFlag = /foil/i.test(extraPart + namePart) ? 'foil' : '';
                             results.push(`${count},${quotedName},${set},Near Mint,English,${foilFlag},${colNum}`);
                         } else {
-                            // TXT DECK FORMAT: "1 Card Name [SET] 123"
-                            // Moxfield deck editor prefers this exact string
+                            // TXT format used by Moxfield Deck Editor
                             results.push(`${count} ${cleanName} [${set}] ${colNum}`);
                         }
                     });
@@ -137,17 +135,6 @@
                     const el = document.getElementById('outputArea');
                     el.select();
                     document.execCommand('copy');
-                    alert('Copied to clipboard!');
-                },
-
-                downloadCSV() {
-                    const blob = new Blob([this.output], { type: 'text/csv;charset=utf-8;' });
-                    const link = document.createElement("a");
-                    link.href = URL.createObjectURL(blob);
-                    link.setAttribute("download", "forge_export.csv");
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
                 }
             }
         }
