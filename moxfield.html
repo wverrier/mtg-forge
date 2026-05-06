@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FORGE // MOXFIELD SKYWALKER</title>
+    <title>FORGE // MOXFIELD HEY</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
@@ -22,7 +22,7 @@
         <header class="mb-12 border-b border-cyan-400/20 pb-6 flex justify-between items-end">
             <div>
                 <h1 class="text-5xl font-bold text-cyan-400 italic" style="font-family: 'Bebas Neue'">MOXFIELD // COLLECTION UPLINK</h1>
-                <p class="text-slate-400 text-sm tracking-widest uppercase">V7: Subtitle Stripping & [LIST] Expansion</p>
+                <p class="text-slate-400 text-sm tracking-widest uppercase">V8: Targeted Subtitle Handling & Name Protection</p>
             </div>
             <a href="index.html" class="text-xs text-cyan-400 hover:underline mb-2 tracking-tighter">← SYSTEM TERMINAL</a>
         </header>
@@ -76,25 +76,29 @@
                         let namePart = remainder.substring(0, setIndex).trim();
                         let extraPart = remainder.substring(setIndex + setMatch[0].length).trim();
 
-                        // 1. Resolve [LIST] & [SPG] (Special Guest)
+                        if (namePart.toLowerCase().includes('token') || namePart.toLowerCase().includes('thick stock')) return;
+
+                        // 1. Resolve [LIST] & [SPG]
                         const listCheck = namePart.match(/\((.*?)\)/);
                         if (set === 'LIST' || set === 'SPG') {
                             if (listCheck) set = listCheck[1];
                         }
 
                         // 2. Resolve Reskins (FCA/SLD/ACR)
+                        // Capture real card name for reskins using the " - " divider
                         if (namePart.includes(" - ")) {
                             const parts = namePart.split(" - ");
                             const lastPart = parts[parts.length - 1].trim();
-                            if (['FCA', 'SLD', 'ACR', 'SPM'].includes(set)) {
+                            // For reskins, we almost always want the Magic-specific name
+                            if (['FCA', 'SLD'].includes(set)) {
                                 namePart = lastPart;
                             }
                         }
 
-                        // 3. Subtitle / "Peter Porker" Fix
-                        // Strips everything after the comma if it's a known subtitled set
-                        if (namePart.includes(",") && ['SPM', 'ACR', 'SLD', 'FCA'].includes(set)) {
-                            // Only strip if there's no quote marks already
+                        // 3. TARGETED Subtitle Fix
+                        // Only strip commas for Marvel (SPM) Spider-Ham style entries.
+                        // DO NOT strip for ACR or SLD as commas are usually part of the official name.
+                        if (namePart.includes(",") && set === 'SPM') {
                             namePart = namePart.split(",")[0].trim();
                         }
 
@@ -108,13 +112,11 @@
                         let collectorNum = '';
                         let isFoil = /foil/i.test(extraPart + namePart) ? 'foil' : '';
                         
-                        // Extract digits
                         const allDigits = (namePart + " " + extraPart).match(/\b\d{1,4}\b/g);
                         if (allDigits) {
                             collectorNum = allDigits[allDigits.length - 1];
                         }
 
-                        // CRITICAL: Keep names in quotes for CSV safety
                         const finalName = `"${cleanName.replace(/"/g, '""')}"`;
                         csvRows.push(`${count},${finalName},${set},Near Mint,English,${isFoil},${collectorNum}`);
                     });
