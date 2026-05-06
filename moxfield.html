@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FORGE // MOXFIELD UPLINK NEW</title>
+    <title>FORGE // MOXFIELD NEW UPLINK</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
@@ -12,7 +12,7 @@
         body { background: var(--gunmetal); color: #e8eef0; font-family: 'Rajdhani', sans-serif; min-height: 100vh; }
         .panel { background: var(--dark); border: 1px solid rgba(77,217,240,0.1); }
         textarea { background: rgba(0,0,0,0.3) !important; border: 1px solid rgba(77,217,240,0.2) !important; color: #4dd9f0 !important; font-family: monospace; }
-        .btn-primary { background: transparent; border: 1px solid var(--cyan); color: var(--cyan); font-family: 'Bebas Neue'; transition: 0.2s; }
+        .btn-primary { background: transparent; border: 1px solid var(--cyan); color: var(--cyan); font-family: 'Bebas Neue'; transition: 0.2s; cursor: pointer; }
         .btn-primary:hover { background: var(--cyan); color: var(--gunmetal); box-shadow: 0 0 15px var(--cyan); }
     </style>
 </head>
@@ -22,7 +22,7 @@
         <header class="mb-12 border-b border-cyan-400/20 pb-6 flex justify-between items-end">
             <div>
                 <h1 class="text-5xl font-bold text-cyan-400 italic" style="font-family: 'Bebas Neue'">MOXFIELD // COLLECTION UPLINK</h1>
-                <p class="text-slate-400 text-sm tracking-widest uppercase">Specialized Parser: [LIST] & Full-Art Support</p>
+                <p class="text-slate-400 text-sm tracking-widest uppercase">V4: Token Filtering & Complex Reskin Support</p>
             </div>
             <a href="index.html" class="text-xs text-cyan-400 hover:underline mb-2 tracking-tighter">← SYSTEM TERMINAL</a>
         </header>
@@ -30,8 +30,7 @@
         <div class="grid gap-8">
             <div class="panel p-6">
                 <label class="block text-xs font-bold text-cyan-400 mb-2 uppercase tracking-tighter">Raw Data Input</label>
-                <textarea x-model="rawInput" rows="10" class="w-full p-4 rounded focus:outline-none focus:border-cyan-400" 
-                    placeholder="Paste your list here..."></textarea>
+                <textarea x-model="rawInput" rows="10" class="w-full p-4 rounded focus:outline-none focus:border-cyan-400" placeholder="Paste large list here..."></textarea>
             </div>
 
             <div class="flex justify-center">
@@ -41,7 +40,10 @@
             <div class="panel p-6" x-show="csvOutput">
                 <div class="flex justify-between items-center mb-2">
                     <label class="text-xs font-bold text-cyan-400 uppercase tracking-tighter">CSV Output</label>
-                    <button @click="downloadCSV()" class="text-[10px] text-white bg-white/10 px-2 py-1 hover:bg-cyan-400 hover:text-black transition">Download .CSV</button>
+                    <div class="flex gap-2">
+                        <span class="text-[10px] text-yellow-500 font-bold uppercase py-1 px-2 bg-yellow-500/10" x-show="tokenCount > 0" x-text="tokenCount + ' TOKENS REMOVED'"></span>
+                        <button @click="downloadCSV()" class="text-[10px] text-white bg-white/10 px-2 py-1 hover:bg-cyan-400 hover:text-black transition">Download .CSV</button>
+                    </div>
                 </div>
                 <textarea x-model="csvOutput" readonly rows="10" class="w-full p-4 rounded opacity-80 text-sm"></textarea>
             </div>
@@ -53,9 +55,11 @@
             return {
                 rawInput: '',
                 csvOutput: '',
+                tokenCount: 0,
                 
                 processData() {
                     if (!this.rawInput.trim()) return;
+                    this.tokenCount = 0;
 
                     const lines = this.rawInput.split('\n');
                     let csvRows = ['Count,Name,Edition,Condition,Language,Foil,Collector Number'];
@@ -64,14 +68,14 @@
                         const trimmedLine = line.trim();
                         if (!trimmedLine) return;
 
-                        // Regex to grab Count and separate the rest
+                        // Identify Count
                         const countMatch = trimmedLine.match(/^(\d+)\s+/);
                         if (!countMatch) return;
                         
                         const count = countMatch[1];
                         let remainder = trimmedLine.substring(countMatch[0].length).trim();
 
-                        // Grab the Set Code [XXX]
+                        // Grab Set [XXX]
                         const setMatch = remainder.match(/\[(.*?)\]/);
                         if (!setMatch) return;
 
@@ -80,43 +84,47 @@
                         let namePart = remainder.substring(0, setIndex).trim();
                         let extraPart = remainder.substring(setIndex + setMatch[0].length).trim();
 
-                        // --- SCRUBBING ENGINE ---
+                        // --- THE V4 SCRUBBING ENGINE ---
 
-                        // 1. Resolve [LIST] redirects (e.g. Arcane Signet (MKC) [LIST])
-                        const listCheck = namePart.match(/\((.*?)\)/);
-                        if (set === 'LIST' && listCheck) {
-                            set = listCheck[1]; // Use the inner set code (MKC) instead of LIST
+                        // 1. Filter out non-importable items (Tokens & Thick Stock)
+                        const filterTerms = ['token', 'thick stock', 'art card'];
+                        if (filterTerms.some(term => namePart.toLowerCase().includes(term))) {
+                            this.tokenCount++;
+                            return; // Skip this line
                         }
 
-                        // 2. Resolve Double-Names/Reskins (e.g. Basim - Ramses)
+                        // 2. Resolve [LIST] redirects
+                        const listCheck = namePart.match(/\((.*?)\)/);
+                        if (set === 'LIST' && listCheck) {
+                            set = listCheck[1];
+                        }
+
+                        // 3. Robust Reskin/Double-Name Handling
+                        // Captures second name in "A Promise Fulfilled - Light Up the Stage"
                         if (namePart.includes(" - ")) {
-                            // If it's a reskin, the second half is usually the actual card name
                             const parts = namePart.split(" - ");
-                            const possibleSuffixes = ['full art', 'showcase', 'borderless'];
-                            const lastPartLower = parts[parts.length - 1].toLowerCase();
+                            // If the second part looks like a real card name (not a version like "Full Art")
+                            const noiseTerms = ['full art', 'showcase', 'borderless', 'textured', 'extended', 'etched'];
+                            const lastPart = parts[parts.length - 1];
                             
-                            // Only split if it's not a flavor suffix like "Full Art"
-                            if (!possibleSuffixes.some(s => lastPartLower.includes(s))) {
-                                namePart = parts[parts.length - 1];
+                            if (!noiseTerms.some(term => lastPart.toLowerCase().includes(term))) {
+                                namePart = lastPart;
                             }
                         }
 
-                        // 3. Clean Name: Remove (Parenthesis) and common suffixes
+                        // 4. Scrub Name: Remove commas and noise
                         let cleanName = namePart
                             .replace(/\s*\(.*?\)/g, '')   
-                            .replace(/\s*-\s*Full Art/i, '')
-                            .replace(/\s*-\s*Showcase/i, '')
-                            .replace(/\s*-\s*Borderless/i, '')
+                            .replace(/\s*-\s*(Full Art|Showcase|Borderless|Textured|Extended|Etched|Retro)/gi, '')
+                            .replace(/,/g, '') // Remove commas in name to avoid CSV drift
                             .trim();
 
-                        // 4. Collector Number & Foil Detection
+                        // 5. Collector Number & Foil Detection
                         let collectorNum = '';
                         let isFoil = /foil/i.test(extraPart + namePart) ? 'foil' : '';
 
-                        // Look for digits in the name or extra part (3 or 4 digits usually)
                         const allDigits = (namePart + " " + extraPart).match(/\b\d{1,4}\b/g);
                         if (allDigits) {
-                            // Take the last set of digits found as the collector number
                             collectorNum = allDigits[allDigits.length - 1];
                         }
 
