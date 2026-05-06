@@ -12,56 +12,56 @@
             background: var(--gunmetal); color: #e8eef0; font-family: 'Rajdhani', sans-serif;
             height: 100vh; display: flex; align-items: center; justify-content: center;
             background-image: repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(77,217,240,0.02) 39px, rgba(77,217,240,0.02) 40px);
-            margin: 0;
-            overflow: hidden;
+            margin: 0; overflow: hidden;
         }
         .menu-card {
             background: var(--dark); border: 1px solid rgba(77,217,240,0.1);
-            transition: 0.3s; position: relative; cursor: pointer;
-            text-decoration: none;
+            transition: 0.3s; position: relative; cursor: pointer; text-decoration: none;
         }
         .menu-card:hover {
             border-color: var(--cyan); background: rgba(77,217,240,0.05);
             transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
         .glitch-sub {
-            font-size: 0.65rem;
-            letter-spacing: 2px;
-            color: var(--cyan);
-            opacity: 0.6;
-            margin-bottom: 0.5rem;
-            display: block;
+            font-size: 0.65rem; letter-spacing: 2px; color: var(--cyan);
+            opacity: 0.6; margin-bottom: 0.5rem; display: block;
         }
     </style>
 </head>
 <body>
-    <div class="max-w-6xl w-full px-6 text-center">
+    <div class="max-w-7xl w-full px-6 text-center">
         <h1 class="text-7xl font-bold tracking-tighter text-cyan-400 mb-16" style="font-family: 'Bebas Neue'">FORGE SYSTEM v1.0</h1>
         
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             
-            <a href="decks.html" class="menu-card p-8 group">
+            <a href="decks.html" class="menu-card p-6 group">
                 <span class="glitch-sub uppercase font-mono">Module_01</span>
-                <h2 class="text-4xl font-bold uppercase italic mb-2 text-white" style="font-family: 'Bebas Neue'">Decks</h2>
-                <p class="text-slate-400 text-sm">Construct and optimize lists.</p>
+                <h2 class="text-3xl font-bold uppercase italic mb-2 text-white" style="font-family: 'Bebas Neue'">Decks</h2>
+                <p class="text-slate-400 text-[11px]">Construct and optimize lists.</p>
             </a>
 
-            <a href="collection.html" class="menu-card p-8 group">
+            <a href="collection.html" class="menu-card p-6 group">
                 <span class="glitch-sub uppercase font-mono">Module_02</span>
-                <h2 class="text-4xl font-bold uppercase italic mb-2 text-white" style="font-family: 'Bebas Neue'">Vault</h2>
-                <p class="text-slate-400 text-sm">Manage owned inventory.</p>
+                <h2 class="text-3xl font-bold uppercase italic mb-2 text-white" style="font-family: 'Bebas Neue'">Vault</h2>
+                <p class="text-slate-400 text-[11px]">Manage owned inventory.</p>
             </a>
 
-            <a href="playtest.html" class="menu-card p-8 group border-cyan-400/40 bg-cyan-400/5">
+            <a href="playtest.html" class="menu-card p-6 group border-cyan-400/40 bg-cyan-400/5">
                 <span class="glitch-sub uppercase font-mono animate-pulse">Neural_Link</span>
-                <h2 class="text-4xl font-bold uppercase italic mb-2 text-cyan-400" style="font-family: 'Bebas Neue'">Playtest</h2>
-                <p class="text-slate-400 text-sm">Combat simulation environment.</p>
+                <h2 class="text-3xl font-bold uppercase italic mb-2 text-cyan-400" style="font-family: 'Bebas Neue'">Playtest</h2>
+                <p class="text-slate-400 text-[11px]">Combat simulation environment.</p>
             </a>
 
-            <a href="import.html" class="menu-card p-8 group">
+            <a href="import.html" class="menu-card p-6 group">
                 <span class="glitch-sub uppercase font-mono">Module_03</span>
-                <h2 class="text-4xl font-bold uppercase italic mb-2 text-white" style="font-family: 'Bebas Neue'">Uplink</h2>
-                <p class="text-slate-400 text-sm">Import card data lists.</p>
+                <h2 class="text-3xl font-bold uppercase italic mb-2 text-white" style="font-family: 'Bebas Neue'">Uplink</h2>
+                <p class="text-slate-400 text-[11px]">Import card data lists.</p>
+            </a>
+
+            <a href="moxfield.html" class="menu-card p-6 group">
+                <span class="glitch-sub uppercase font-mono">Module_04</span>
+                <h2 class="text-3xl font-bold uppercase italic mb-2 text-white" style="font-family: 'Bebas Neue'">Moxfield</h2>
+                <p class="text-slate-400 text-[11px]">CSV Collection Translator.</p>
             </a>
 
         </div>
