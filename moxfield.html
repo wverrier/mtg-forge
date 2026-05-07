@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FORGE // MOXFIELD STARWARSISBETTER</title>
+    <title>FORGE // MOXFIELD OBIWAN</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
@@ -24,12 +24,12 @@
         <header class="mb-8 border-b border-cyan-400/20 pb-6 flex justify-between items-end">
             <div>
                 <h1 class="text-5xl font-bold text-cyan-400 italic" style="font-family: 'Bebas Neue'">MOXFIELD // TRANSLATOR</h1>
-                <p class="text-slate-400 text-sm tracking-widest uppercase">V12: Numeric Formatting for Deck Editor</p>
+                <p class="text-slate-400 text-sm tracking-widest uppercase">V13: Deck Format (Exact Match)</p>
             </div>
             
             <nav class="flex gap-4">
-                <div @click="mode = 'csv'" :class="mode === 'csv' ? 'nav-tab active' : 'nav-tab'">OPTION 1: CSV</div>
-                <div @click="mode = 'txt'" :class="mode === 'txt' ? 'nav-tab active' : 'nav-tab'">OPTION 2: DECK (TXT)</div>
+                <div @click="mode = 'csv'" :class="mode === 'csv' ? 'nav-tab active' : 'nav-tab'">OPTION 1: CSV (COLLECTION)</div>
+                <div @click="mode = 'txt'" :class="mode === 'txt' ? 'nav-tab active' : 'nav-tab'">OPTION 2: TXT (DECK)</div>
             </nav>
         </header>
 
@@ -41,16 +41,14 @@
 
             <div class="flex justify-center">
                 <button @click="processData()" class="btn-primary px-16 py-3 text-xl uppercase italic" 
-                        x-text="mode === 'csv' ? 'Generate CSV File' : 'Format for Decklist'"></button>
+                        x-text="mode === 'csv' ? 'Generate CSV' : 'Generate Decklist'"></button>
             </div>
 
             <div class="panel p-6" x-show="output">
                 <div class="flex justify-between items-center mb-2">
                     <label class="text-[10px] font-bold text-cyan-400 uppercase tracking-widest" 
-                           x-text="mode === 'csv' ? 'CSV Result' : 'TXT Result (Copy/Paste into Deck)'"></label>
-                    <div class="flex gap-2">
-                        <button @click="copyToClipboard()" class="text-[10px] text-white bg-white/10 px-2 py-1 hover:bg-cyan-400 hover:text-black transition uppercase">Copy</button>
-                    </div>
+                           x-text="mode === 'csv' ? 'CSV Content' : 'Decklist Content (Copy to Moxfield)'"></label>
+                    <button @click="copyToClipboard()" class="text-[10px] text-white bg-white/10 px-2 py-1 hover:bg-cyan-400 hover:text-black transition uppercase">Copy to Clipboard</button>
                 </div>
                 <textarea x-model="output" readonly rows="10" class="w-full p-4 rounded opacity-80 text-sm" id="outputArea"></textarea>
             </div>
@@ -60,7 +58,7 @@
     <script>
         function moxfieldTranslator() {
             return {
-                mode: 'csv',
+                mode: 'txt',
                 rawInput: '',
                 output: '',
                 
@@ -90,7 +88,8 @@
                         let namePart = remainder.substring(0, setIndex).trim();
                         let extraPart = remainder.substring(setIndex + setMatch[0].length).trim();
 
-                        if (namePart.toLowerCase().includes('token') || namePart.toLowerCase().includes('thick stock')) return;
+                        // Filter non-playable items
+                        if (namePart.toLowerCase().includes('token') || namePart.toLowerCase().includes('art series')) return;
 
                         // List/SPG Redirection
                         const listSetMatch = namePart.match(/\((.*?)\)/);
@@ -98,33 +97,38 @@
                             set = listSetMatch[1];
                         }
 
-                        // Reskin Logic
+                        // Reskin Logic (FCA/SLD)
                         if (namePart.includes(" - ") && ['FCA', 'SLD'].includes(set)) {
                             namePart = namePart.split(" - ").pop().trim();
                         }
 
-                        // Clean Name (Keeping Commas for Deck format)
+                        // Clean Name: Strip specific Moxfield "noise" but keep commas
                         let cleanName = namePart
+                            .replace(/\(Display Commander\)/gi, '')
+                            .replace(/Thick Stock/gi, '')
                             .replace(/\s*\(.*?\)/g, '')
                             .replace(/\s*-\s*(Full Art|Showcase|Borderless|Textured|Extended|Etched|Retro)/gi, '')
                             .trim();
 
-                        // Collector Number Cleaning
+                        // Collector Number (No leading zeros)
                         let colNum = '';
                         const allDigits = (namePart + " " + extraPart).match(/\b\d{1,4}\b/g);
                         if (allDigits) {
-                            colNum = allDigits[allDigits.length - 1];
-                            // LEADING ZERO FIX: Strip zeros from the start (e.g. 0223 becomes 223)
-                            colNum = colNum.replace(/^0+/, '');
+                            colNum = allDigits[allDigits.length - 1].replace(/^0+/, '');
                         }
+
+                        // Foil Check
+                        let isFoil = /foil/i.test(extraPart + namePart);
 
                         if (this.mode === 'csv') {
                             const quotedName = `"${cleanName.replace(/"/g, '""')}"`;
-                            let foilFlag = /foil/i.test(extraPart + namePart) ? 'foil' : '';
-                            results.push(`${count},${quotedName},${set},Near Mint,English,${foilFlag},${colNum}`);
+                            results.push(`${count},${quotedName},${set},Near Mint,English,${isFoil ? 'foil' : ''},${colNum}`);
                         } else {
-                            // TXT format used by Moxfield Deck Editor
-                            results.push(`${count} ${cleanName} [${set}] ${colNum}`);
+                            // OPTION 2: Exact Moxfield TXT Format
+                            // Format: 1 Card Name (SET) 123 *F*
+                            let lineResult = `${count} ${cleanName} (${set}) ${colNum}`;
+                            if (isFoil) lineResult += " *F*";
+                            results.push(lineResult);
                         }
                     });
 
